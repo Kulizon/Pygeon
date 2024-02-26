@@ -1,3 +1,4 @@
+import copy
 import math
 
 import pygame as pg
@@ -5,7 +6,7 @@ import random
 import csv
 import os
 
-
+import pygame.draw
 
 pg.init()
 
@@ -17,7 +18,6 @@ clock = pg.time.Clock()
 
 CHARACTER_SIZE = 50
 WALL_SIZE = CHARACTER_SIZE
-
 
 def compare_rect(rect1, rect2):
     return (rect1.x != rect2.x or
@@ -89,7 +89,9 @@ class Wall(pg.sprite.Sprite):
     def __init__(self, image, x, y):
         super().__init__()
         self.image = pg.transform.scale(image, (WALL_SIZE, WALL_SIZE))
-        self.rect = self.image.get_rect(topleft=(x, y))
+        self.col = x
+        self.row = y
+        self.rect = self.image.get_rect(topleft=(x * WALL_SIZE, y * WALL_SIZE))
 
 class Character(pg.sprite.Sprite, Animated):
     def __init__(self, x, y, images_path):
@@ -115,16 +117,13 @@ class Enemy(Character):
         if not self.is_colliding_with_walls(move_x, move_y):
             self.rect.x += move_x
             self.rect.y += move_y
-            return True
         else:
             if not self.is_colliding_with_walls(move_x, 0):
                 self.rect.x += move_x
-                return True
             elif not self.is_colliding_with_walls(0, move_y):
                 self.rect.y += move_y
-                return True
 
-        return False
+
 
     def update(self, player_rect, obstacles, *args, **kwargs):
         dx = player_rect.x - self.rect.x
@@ -138,10 +137,6 @@ class Enemy(Character):
         move_x = math.copysign(max(1, abs(dx * self.speed)), dx)
         move_y = math.copysign(max(1, abs(dy * self.speed)), dy)
 
-        print(self.in_line_of_sight(player_rect, obstacles))
-        print(self.last_known_player_position)
-        print()
-
         if self.in_line_of_sight(player_rect, obstacles):
             self.last_known_player_position = (player_rect.x, player_rect.y)
             self.change_position(move_x, move_y)
@@ -152,6 +147,9 @@ class Enemy(Character):
                 dy = last_player_y - self.rect.y
                 distance = math.sqrt(dx ** 2 + dy ** 2)
 
+                if distance <= 5:
+                    self.last_known_player_position = None;
+
                 if distance != 0:
                     dx /= distance
                     dy /= distance
@@ -159,16 +157,7 @@ class Enemy(Character):
                 move_x = math.copysign(max(1, abs(dx * self.speed)), dx)
                 move_y = math.copysign(max(1, abs(dy * self.speed)), dy)
 
-
-                if abs(last_player_x - self.rect.x) <= 1 or abs(last_player_y - self.rect.y) <= 1:
-                    self.last_known_player_position = None
-
-                changed = self.change_position(move_x, move_y)
-                print(changed)
-                if not changed:
-                    self.last_known_player_position = None
-
-
+                self.change_position(move_x, move_y)
 
         self.animate_new_frame()
 
@@ -180,27 +169,17 @@ class Enemy(Character):
         return False
 
     def in_line_of_sight(self, player_rect, obstacles):
-        vision_ray = pg.Rect(self.rect.center, (1, 1))  # Initialize with a small size
+        # draw the vision ray
+        vision_start = self.rect.centerx + camera.rect.x, self.rect.centery + camera.rect.y
+        player_pos = player_rect.centerx + camera.rect.x, player_rect.centery + camera.rect.y
+        pg.draw.line(screen, (255, 255, 0), vision_start, player_pos, 2)
 
-        # Adjust width and height of vision_ray based on player and enemy positions
-        dx = player_rect.centerx - self.rect.centerx
-        dy = player_rect.centery - self.rect.centery
-        vision_ray.width = abs(dx)
-        vision_ray.height = abs(dy)
-
-        # Adjust vision_ray's left and top based on relative positions
-        if dx < 0:
-            vision_ray.left = player_rect.centerx
-        if dy < 0:
-            vision_ray.top = player_rect.centery
-
-        if dx == 0:
-            vision_ray.width = 1
-        if dy == 0:
-            vision_ray.height = 1
+        if math.dist(vision_start, player_pos) > 300:
+            print("too far")
+            return False
 
         for obstacle in obstacles:
-            if vision_ray.colliderect(obstacle.rect):
+            if obstacle.rect.clipline((self.rect.center, player_rect.center)):
                 return False
         return True
 
@@ -223,7 +202,6 @@ class Player(Character):
         self.animate_new_frame()
         self.update_dash()
 
-
     def update_dash(self):
         if self.dashing:
             if self.rect.x != self.dest_x or self.rect.y != self.dest_y:
@@ -233,12 +211,6 @@ class Player(Character):
 
             if self.rect.x == self.dest_x and self.rect.y == self.dest_y:
                 self.dashing = False
-
-    import pygame as pg
-    import math
-
-    import pygame as pg
-    import math
 
     def move(self, dx, dy, ignore_dash_check=False):
         if self.dashing and not ignore_dash_check:
@@ -267,7 +239,7 @@ class Player(Character):
             if dx != 0:
                 self.flip_model_on_move(dx)
         else:
-            # If collision occurred, try moving along each axis individually
+            # if collision occurred, try moving along each axis individually
             new_x_rect = pg.Rect(new_x, self.rect.y, CHARACTER_SIZE, CHARACTER_SIZE)
             new_y_rect = pg.Rect(self.rect.x, new_y, CHARACTER_SIZE, CHARACTER_SIZE)
 
@@ -288,8 +260,6 @@ class Player(Character):
     def dash(self):
         if pg.time.get_ticks() - self.last_dash_time < self.dash_cooldown:
             return
-
-        print(self.direction)
 
         dx = 100 * self.direction[0]
         dy = 100 * self.direction[1]
@@ -316,7 +286,6 @@ class Player(Character):
             self.animate()
 
     def slash_attack(self, direction):
-
         if pg.time.get_ticks() - self.last_attack_time < self.attack_cooldown:
             return
 
@@ -357,12 +326,17 @@ class Player(Character):
 class Camera:
     def __init__(self, width, height):
         self.rect = pg.Rect(0, 0, width, height)
+
         self.width = width
         self.height = height
+        self.initial_width = width
+        self.initial_height = height
+
+
 
     def update(self, target):
-        x = -target.rect.x + WIDTH // 2
-        y = -target.rect.y + HEIGHT // 2
+        x = -target.rect.x + (WIDTH // 2)
+        y = -target.rect.y + (HEIGHT // 2)
 
         x = min(0, x)
         y = min(0, y)
@@ -405,26 +379,31 @@ def load_tileset(image_path, tile_width, tile_height):
 walls = pg.sprite.Group()
 ground = pg.sprite.Group()
 
+rooms_tile_maps = []
+
+# read all the available rooms
+# every room has a certain size like 32x32, but there can be a lot of black spaces
+
+
+
 tiles_images = load_tileset("tileset.png", 16, 16)
 tile_map = convert_csv_to_2d_list(csv_file="map.csv")
 for row in range(len(tile_map)):
     for col in range(len(tile_map[row])):
         id = tile_map[row][col]
         if id in [0, 1, 2, 3, 4, 5, 10, 15, 20, 25, 30, 35, 40, 41, 42, 43, 44, 45, 50, 51, 52, 53, 54, 55]:
-            walls.add(Wall(tiles_images[id], col * WALL_SIZE, row * WALL_SIZE))
+            walls.add(Wall(tiles_images[id], col, row))
         else:
-            ground.add(Wall(tiles_images[id], col * WALL_SIZE, row * WALL_SIZE))
+            ground.add(Wall(tiles_images[id], col, row))
 
 player = Player()
 ch1 = Enemy(800, 800)
 
 characters = pg.sprite.Group()
+visuals = pg.sprite.Group()
 characters.add(player, ch1)
 
 camera = Camera(len(tile_map[0]) * WALL_SIZE, len(tile_map) * WALL_SIZE)
-
-visuals = pg.sprite.Group()
-
 
 running = True
 while running:
@@ -452,16 +431,14 @@ while running:
     if dx != 0 or dy != 0:
         player.move(dx, -dy)
 
-    camera.update(player)
-
     screen.fill(WHITE)
-    for tile in ground:
-        screen.blit(tile.image, (tile.rect.x + camera.rect.x, tile.rect.y + camera.rect.y))
-    for wall in walls:
-        screen.blit(wall.image, (wall.rect.x + camera.rect.x, wall.rect.y + camera.rect.y))
-    for char in characters:
-        screen.blit(char.image, (char.rect.x + camera.rect.x, char.rect.y + camera.rect.y))
+    game_objs_groups = [ground, walls, characters, visuals]
 
+    for group in game_objs_groups:
+        for obj in group:
+            screen.blit(obj.image, (obj.rect.x + camera.rect.x, obj.rect.y+ camera.rect.y))
+
+    camera.update(player)
 
     for char in characters:
         for attack in char.attacks:
@@ -483,10 +460,7 @@ while running:
 
             visuals.add(attackVisual)
 
-    for visual in visuals:
-        screen.blit(visual.image, (visual.rect.x + camera.rect.x, visual.rect.y + camera.rect.y))
     visuals.update()
-
     characters.update(player.rect, walls)
 
     pg.display.flip()
