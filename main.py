@@ -243,13 +243,12 @@ class Player(Character):
                 self.dashing = False
 
     def move(self, dx, dy, ignore_dash_check=False):
+        print(self.dashing and not ignore_dash_check)
         if self.dashing and not ignore_dash_check:
             return
 
         new_x = self.rect.x + dx
         new_y = self.rect.y + dy
-
-        print(dx, dy)
 
         self.direction = (0 if dx == 0 else math.copysign(1, dx), 0 if dy == 0 else math.copysign(1, dy))
 
@@ -265,6 +264,9 @@ class Player(Character):
                     is_collision = True
                     break
             if is_collision:
+                print("Collision, cannot move")
+                self.dashing = False
+                self.last_dash_time = pg.time.get_ticks()
                 break
 
         if not is_collision:
