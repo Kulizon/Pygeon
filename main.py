@@ -25,8 +25,6 @@ def compare_rect(rect1, rect2):
             rect1.height != rect2.height)
 
 
-
-
 class Animated():
     def __init__(self, images, size, frame_duration, flipped_x=False, flipped_y=False, rotation=0):
         super().__init__()
@@ -86,7 +84,7 @@ class Character(pg.sprite.Sprite, Animated):
         Animated.__init__(self, images, (WALL_SIZE, WALL_SIZE), 400)
 
         self.last_attack_time = pg.time.get_ticks()
-        self.last_roam_time = pg.time.get_ticks()
+        self.attack_cooldown = 700
         self.attack_cooldown = 0
         self.rect = self.image.get_rect(topleft=(x, y))
         self.attacks = []
@@ -100,14 +98,55 @@ class Character(pg.sprite.Sprite, Animated):
             self.animate()
 
 
+    def slash_attack(self, direction):
+        if pg.time.get_ticks() - self.last_attack_time < self.attack_cooldown:
+            return
+
+        self.last_attack_time = pg.time.get_ticks()
+
+        if direction[1] == 1:
+            dim = (CHARACTER_SIZE * 3, CHARACTER_SIZE)
+            dest = (self.rect.x - CHARACTER_SIZE, self.rect.y - CHARACTER_SIZE)
+        elif direction[1] == -1:
+            dim = (CHARACTER_SIZE * 3, CHARACTER_SIZE)
+            dest = (self.rect.x - CHARACTER_SIZE, self.rect.y + CHARACTER_SIZE)
+        elif direction[0] == -1:
+            dim = (CHARACTER_SIZE, CHARACTER_SIZE * 3)
+            dest = (self.rect.x - CHARACTER_SIZE, self.rect.y - CHARACTER_SIZE)
+        elif direction[0] == 1:
+            dim = (CHARACTER_SIZE, CHARACTER_SIZE * 3)
+            dest = (self.rect.x + CHARACTER_SIZE, self.rect.y - CHARACTER_SIZE)
+        else:
+            return
+
+        scale = 0.90
+        dest = tuple(int(dest[i] + dim[i] * (1-scale)/2) for i in range(len(dest)))
+        dim = tuple(int(x * scale) for x in dim)
+
+        attack = {
+            'dim': dim,
+            'dest': dest,
+            'start_time': pg.time.get_ticks(),
+            'duration': 150,
+            'flipped_x': direction[0] == -1,
+            'flipped_y': direction[1] == 1
+        }
+
+        self.attacks.append(attack)
+
 
 class Enemy(Character):
     def __init__(self, x, y):
         super().__init__(x, y, "skeleton_enemy_1")
+        self.attack_dir = None
         self.speed = 1
         self.last_known_player_position = None
         self.roam_position = None
+        self.last_roam_time = pg.time.get_ticks()
         self.roam_wait_time = random.randint(1500, 2500)
+        self.last_turn_around_animation_time = pg.time.get_ticks()
+        self.attack_cooldown = 1500
+        self.about_to_attack_time = 0
 
     def change_position(self, move_x, move_y):
         if not self.is_colliding_with_walls(move_x, move_y):
@@ -131,11 +170,11 @@ class Enemy(Character):
         dy = pos_y - self.rect.y
         distance = math.sqrt(dx ** 2 + dy ** 2)
 
-
-
         if distance != 0:
             dx /= distance
             dy /= distance
+
+
 
         move_x = math.copysign(max(0, abs(dx * self.speed)), dx)
         move_y = math.copysign(max(0, abs(dy * self.speed)), dy)
@@ -148,16 +187,34 @@ class Enemy(Character):
             self.last_known_player_position = None
             self.roam_position = None
             self.last_roam_time = pg.time.get_ticks()
+            self.last_turn_around_animation_time = pg.time.get_ticks()
             self.roam_wait_time = random.randint(1500, 2500)
 
+
     def update(self, player_rect, obstacles, *args, **kwargs):
-        if self.in_line_of_sight(player_rect, obstacles):
+
+        if self.about_to_attack_time != 0:
+            if self.attack_dir and pg.time.get_ticks() - self.about_to_attack_time > 500:
+                self.slash_attack(self.attack_dir)
+                self.attack_dir = None
+                self.about_to_attack_time = 0
+        elif self.in_line_of_sight(player_rect, obstacles):
             # if self.last_known_player_position == None:
-            #     print()
                 #visuals.add(Visual(self.dash_animation_images, self.rect.copy(), pg.time.get_ticks(), 200, not(self.flipped_x), rotation=dash_rotation))
 
             self.move_in_direction((player_rect.x, player_rect.y))
             self.last_known_player_position = (player_rect.x, player_rect.y)
+
+            distance_to_player = (self.rect.x - player_rect.x) ** 2 + (self.rect.y - player_rect.y) ** 2
+            if distance_to_player < 13000 and pg.time.get_ticks() - self.last_attack_time > self.attack_cooldown:
+
+                if abs(self.rect.x - player_rect.x) > abs((self.rect.y - player_rect.y)):
+                    self.attack_dir = [math.copysign(1, player_rect.x - self.rect.x), 0]
+                else:
+                    self.attack_dir = [0, math.copysign(1, self.rect.y - player_rect.y)]
+
+                self.about_to_attack_time = pg.time.get_ticks()
+
         elif self.last_known_player_position:
             self.move_in_direction(self.last_known_player_position)
         elif self.roam_position:
@@ -170,13 +227,14 @@ class Enemy(Character):
             self.in_line_of_sight(random_point, obstacles, True)
             self.move_in_direction(self.roam_position)
         else:
-            dt = pg.time.get_ticks() - self.last_roam_time
+            wait_dt = pg.time.get_ticks() - self.last_roam_time
+            animation_dt = pg.time.get_ticks() - self.last_turn_around_animation_time
 
-            if dt < self.roam_wait_time:
-                if dt < self.roam_wait_time / 3 or dt < self.roam_wait_time / 3 * 2:
+            if wait_dt < self.roam_wait_time - 50:
+                if animation_dt < self.roam_wait_time/2:
                     self.flipped_x = not self.flipped_x
                     self.animate_new_frame()
-
+                    self.last_turn_around_animation_time = pg.time.get_ticks()
                 return
 
             # chose random point, check if in line of sight
@@ -215,6 +273,7 @@ class Enemy(Character):
 
 
 
+
 class Player(Character):
     def __init__(self, start_x, start_y):
         super().__init__(start_x, start_y, "player_character")
@@ -235,15 +294,14 @@ class Player(Character):
     def update_dash(self):
         if self.dashing:
             if self.rect.x != self.dest_x or self.rect.y != self.dest_y:
-                move_x = min(10, abs(self.rect.x - self.dest_x))
-                move_y = min(10, abs(self.rect.y - self.dest_y))
+                move_x = min(12, abs(self.rect.x - self.dest_x))
+                move_y = min(12, abs(self.rect.y - self.dest_y))
                 self.move(math.copysign(move_x, self.direction[0]), math.copysign(move_y, self.direction[1]), True)
 
             if self.rect.x == self.dest_x and self.rect.y == self.dest_y:
                 self.dashing = False
 
     def move(self, dx, dy, ignore_dash_check=False):
-        print(self.dashing and not ignore_dash_check)
         if self.dashing and not ignore_dash_check:
             return
 
@@ -252,22 +310,18 @@ class Player(Character):
 
         self.direction = (0 if dx == 0 else math.copysign(1, dx), 0 if dy == 0 else math.copysign(1, dy))
 
-        full_move_rect = pg.Rect(new_x, new_y, CHARACTER_SIZE, CHARACTER_SIZE)
+        new_rect = pg.Rect(new_x, new_y, CHARACTER_SIZE, CHARACTER_SIZE)
         objs = [characters, walls]
 
-        new_rect = full_move_rect
-
         is_collision = False
-        for group in objs:
-            for obj in group:
-                if obj.rect.colliderect(new_rect) and obj != self:
-                    is_collision = True
-                    break
-            if is_collision:
-                print("Collision, cannot move")
-                self.dashing = False
-                self.last_dash_time = pg.time.get_ticks()
+        for obj in walls:
+            if obj.rect.colliderect(new_rect) and obj != self:
+                is_collision = True
                 break
+        if is_collision:
+            print("Collision, cannot move")
+            self.dashing = False
+            self.last_dash_time = pg.time.get_ticks()
 
         if not is_collision:
             self.rect = new_rect
@@ -296,8 +350,13 @@ class Player(Character):
         if pg.time.get_ticks() - self.last_dash_time < self.dash_cooldown:
             return
 
-        dx = 100 * self.direction[0]
-        dy = 100 * self.direction[1]
+        dash_distance = 150
+
+        if self.direction[0] and self.direction[1]:
+            dash_distance = int(dash_distance/math.sqrt(2))
+
+        dx = dash_distance * self.direction[0]
+        dy = dash_distance * self.direction[1]
 
         new_x = self.rect.x + dx
         new_y = self.rect.y + dy
@@ -307,49 +366,10 @@ class Player(Character):
         self.dest_y = new_y
         self.dashing = True
 
-        print(self.direction)
-
         self.flip_model_on_move(dx)
 
         dash_rotation = 90 if dy < 0 else -90 if dy > 0 else 0
         visuals.add(Visual(self.dash_animation_images, self.rect.copy(), pg.time.get_ticks(), 200, not(self.flipped_x), rotation=dash_rotation))
-
-    def slash_attack(self, direction):
-        if pg.time.get_ticks() - self.last_attack_time < self.attack_cooldown:
-            return
-
-        self.last_attack_time = pg.time.get_ticks()
-        self.attack_cooldown = 700
-
-        if direction == pg.K_UP:
-            dim = (CHARACTER_SIZE * 3, CHARACTER_SIZE)
-            dest = (self.rect.x - CHARACTER_SIZE, self.rect.y - CHARACTER_SIZE)
-        elif direction == pg.K_DOWN:
-            dim = (CHARACTER_SIZE * 3, CHARACTER_SIZE)
-            dest = (self.rect.x - CHARACTER_SIZE, self.rect.y + CHARACTER_SIZE)
-        elif direction == pg.K_LEFT:
-            dim = (CHARACTER_SIZE, CHARACTER_SIZE * 3)
-            dest = (self.rect.x - CHARACTER_SIZE, self.rect.y - CHARACTER_SIZE)
-        elif direction == pg.K_RIGHT:
-            dim = (CHARACTER_SIZE, CHARACTER_SIZE * 3)
-            dest = (self.rect.x + CHARACTER_SIZE, self.rect.y - CHARACTER_SIZE)
-        else:
-            return
-
-        scale = 0.90
-        dest = tuple(int(dest[i] + dim[i] * (1-scale)/2) for i in range(len(dest)))
-        dim = tuple(int(x * scale) for x in dim)
-
-        attack = {
-            'dim': dim,
-            'dest': dest,
-            'start_time': pg.time.get_ticks(),
-            'duration': 150,
-            'flipped_x': direction == pg.K_LEFT,
-            'flipped_y': direction == pg.K_UP
-        }
-
-        self.attacks.append(attack)
 
 
 class Camera:
@@ -396,7 +416,7 @@ def load_tileset(image_path, tile_width, tile_height):
     tiles = []
     for y in range(0, image_height, tile_height):
         for x in range(0, image_width, tile_width):
-            tile = image.subsurface((x, y, tile_width, tile_height))
+            tile = image.subsurface((x, y, tile_width, tile_height)).convert_alpha()
             tiles.append(tile)
 
     return tiles
@@ -450,9 +470,30 @@ def connect_rooms(rooms):
                     break
     return map
 
+
+heart_image = pg.transform.scale(pg.image.load('heart.png'), (30, 28))
+coin_images = load_tileset("coin.png", 13, 13)
+
+coin_animated = Animated(coin_images, (30, 30), 200)
+
+def display_health(health):
+    for i in range(health):
+        screen.blit(heart_image, (10 + i * 40, 10))
+
+def display_coins(coins):
+    screen.blit(coin_animated.image, (10, 50))
+    font = pg.font.Font("retro_font.ttf", 22)
+    text = font.render("0" * (3 - int(math.log10(coins))) + str(coins), True, WHITE)
+    screen.blit(text, (50, 52))
+    coin_animated.animate_new_frame()
+
+def display_ui(coins, health):
+    display_health(health)
+    display_coins(coins)
+
+
 rooms = [1, 2, 3, 4]
 tile_map = connect_rooms(rooms)
-
 
 characters = pg.sprite.Group()
 
@@ -532,8 +573,6 @@ for i in range(len(tile_map)):
                 else:
                     ground.add(Wall(tiles_images[id], pos_x, pos_y))
 
-        # todo: close off exits
-
 map_width_px = len(tile_map[0]) * WALL_SIZE * ROOM_WIDTH
 map_height_px = len(tile_map) *  WALL_SIZE * ROOM_HEIGHT
 
@@ -543,8 +582,10 @@ ch1 = Enemy(map_width_px//2, map_height_px//2 + 250)
 visuals = pg.sprite.Group()
 characters.add(player, ch1)
 
-
 camera = Camera(map_width_px, map_height_px)
+
+coins = 10
+health = 3
 
 running = True
 while running:
@@ -557,7 +598,18 @@ while running:
             dx, dy = 0, 0
 
             if keys[pg.K_UP] or keys[pg.K_DOWN] or keys[pg.K_RIGHT] or keys[pg.K_LEFT]:
-                player.slash_attack(event.key)
+                direction = [0, 0]
+
+                if event.key == pg.K_UP:
+                    direction = [0, 1]
+                elif event.key == pg.K_DOWN:
+                    direction = [0, -1]
+                elif event.key == pg.K_RIGHT:
+                    direction = [1, 0]
+                elif event.key == pg.K_LEFT:
+                    direction = [-1, 0]
+
+                player.slash_attack(direction)
 
             if keys[pg.K_SPACE]:
                 player.dash()
@@ -573,8 +625,8 @@ while running:
         player.move(dx, -dy)
 
     screen.fill("#25141A")
+    
     game_objs_groups = [ground, walls, characters, visuals]
-
     for group in game_objs_groups:
         for obj in group:
             screen.blit(obj.image, (obj.rect.x + camera.rect.x, obj.rect.y+ camera.rect.y))
@@ -600,6 +652,8 @@ while running:
             attackVisual = Visual(images, attackRect, attack['start_time'], attack['duration'], attack['flipped_x'], attack['flipped_y'])
 
             visuals.add(attackVisual)
+
+    display_ui(coins, health)
 
     visuals.update()
     characters.update(player.rect, walls)
