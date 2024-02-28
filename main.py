@@ -5,12 +5,11 @@ import pygame as pg
 import random
 import csv
 import os
-
-import pygame.draw
+from copy import copy, deepcopy
 
 pg.init()
 
-WIDTH, HEIGHT = 800, 600
+WIDTH, HEIGHT = 1000, 700
 WHITE = (255, 255, 255)
 
 screen = pg.display.set_mode((WIDTH, HEIGHT))
@@ -175,7 +174,6 @@ class Enemy(Character):
         pg.draw.line(screen, (255, 255, 0), vision_start, player_pos, 2)
 
         if math.dist(vision_start, player_pos) > 300:
-            print("too far")
             return False
 
         for obstacle in obstacles:
@@ -186,8 +184,8 @@ class Enemy(Character):
 
 
 class Player(Character):
-    def __init__(self):
-        super().__init__(400, 400, "player_character")
+    def __init__(self, start_x, start_y):
+        super().__init__(start_x, start_y, "player_character")
         self.dest_x = self.rect.x
         self.dest_y = self.rect.y
 
@@ -332,8 +330,6 @@ class Camera:
         self.initial_width = width
         self.initial_height = height
 
-
-
     def update(self, target):
         x = -target.rect.x + (WIDTH // 2)
         y = -target.rect.y + (HEIGHT // 2)
@@ -381,29 +377,145 @@ ground = pg.sprite.Group()
 
 rooms_tile_maps = []
 
+#todo: here
 # read all the available rooms
 # every room has a certain size like 32x32, but there can be a lot of black spaces
+# entrances only in the middle and corridors are like 2x2
 
 
+def place_room(map, room, position):
+    x, y = position
+    map[x][y] = room
 
-tiles_images = load_tileset("tileset.png", 16, 16)
-tile_map = convert_csv_to_2d_list(csv_file="map.csv")
-for row in range(len(tile_map)):
-    for col in range(len(tile_map[row])):
-        id = tile_map[row][col]
-        if id in [0, 1, 2, 3, 4, 5, 10, 15, 20, 25, 30, 35, 40, 41, 42, 43, 44, 45, 50, 51, 52, 53, 54, 55]:
-            walls.add(Wall(tiles_images[id], col, row))
-        else:
-            ground.add(Wall(tiles_images[id], col, row))
+def is_valid_position(map, position):
+    x, y = position
+    return 0 <= x < len(map) and 0 <= y < len(map[0])
 
-player = Player()
-ch1 = Enemy(800, 800)
+def is_room_position_empty(map, position):
+    x, y = position
+    return map[x][y] == 0
+
+def get_adjacent_positions(position):
+    x, y = position
+    return [(x-1, y), (x+1, y), (x, y-1), (x, y+1)]
+
+def connect_rooms(rooms):
+    map_size = (len(rooms) * 2 + 1)
+    map = [[0] * map_size for _ in range(map_size)]
+    start_position = (map_size // 2, map_size // 2)
+    place_room(map, rooms[0], start_position)
+    connected_rooms = [start_position]
+    for room_index in range(1, len(rooms)):
+        placed = False
+        while not placed:
+            connecting_room = random.choice(connected_rooms)
+            adjacent_positions = get_adjacent_positions(connecting_room)
+            random.shuffle(adjacent_positions)
+            for adj_position in adjacent_positions:
+                if is_valid_position(map, adj_position) and is_room_position_empty(map, adj_position):
+                    place_room(map, rooms[room_index], adj_position)
+                    connected_rooms.append(adj_position)
+                    placed = True
+                    break
+    return map
+
+rooms = [1, 2, 3, 4]
+tile_map = connect_rooms(rooms)
+print("Tile map:")
+for row in tile_map:
+    print(row)
 
 characters = pg.sprite.Group()
+
+room_tile_map = convert_csv_to_2d_list(csv_file="room.csv")
+tiles_images = load_tileset("tileset.png", 16, 16)
+ROOM_WIDTH = len(room_tile_map[0])
+ROOM_HEIGHT = len(room_tile_map)
+
+for i in range(len(tile_map)):
+    for j in range(len(tile_map[0])):
+
+        room = tile_map[i][j]
+        x_off = ROOM_WIDTH * j
+        y_off = ROOM_HEIGHT * i
+
+        if room == 0:
+            continue
+
+        room_layout = deepcopy(room_tile_map)
+
+        middle_tile = ROOM_WIDTH // 2 - 1
+        end_tile = ROOM_WIDTH - 1
+
+        # room above
+        if tile_map[i - 1][j] == 0:
+            room_layout[0][middle_tile - 1] = 78  # dark tile
+            room_layout[0][middle_tile + 2] = 78
+            room_layout[0][middle_tile] = 78
+            room_layout[0][middle_tile + 1] = 78
+            room_layout[1][middle_tile] = 2 # wall tile
+            room_layout[1][middle_tile + 1] = 2
+
+        # room below
+        if tile_map[i + 1][j] == 0:
+            room_layout[end_tile][middle_tile-1] = 78  # dark tile
+            room_layout[end_tile][middle_tile+2] = 78
+            room_layout[end_tile][middle_tile] = 78
+            room_layout[end_tile][middle_tile+1] = 78
+            room_layout[end_tile-1][middle_tile] = 41 # wall tile
+            room_layout[end_tile-1][middle_tile+1] = 41
+            room_layout[end_tile-1][middle_tile-1] = 41 # wall tile
+            room_layout[end_tile-1][middle_tile+2] = 41
+
+        # right room
+        if tile_map[i][j + 1] == 0:
+            room_layout[middle_tile-1][end_tile] = 78  # dark tile
+            room_layout[middle_tile][end_tile] = 78
+            room_layout[middle_tile+1][end_tile] = 78
+            room_layout[middle_tile+2][end_tile] = 78
+
+            room_layout[middle_tile-1][end_tile-1] = 15  # wall tile
+            room_layout[middle_tile][end_tile-1] = 15
+            room_layout[middle_tile+1][end_tile-1] = 15
+            room_layout[middle_tile+2][end_tile-1] = 15
+
+            # left room
+        if tile_map[i][j - 1] == 0:
+            room_layout[middle_tile-1][0] = 78  # dark tile
+            room_layout[middle_tile][0] = 78
+            room_layout[middle_tile+1][0] = 78
+            room_layout[middle_tile+2][0] = 78
+
+            room_layout[middle_tile-1][1] = 10  # wall tile
+            room_layout[middle_tile][1] = 10
+            room_layout[middle_tile+1][1] = 10
+            room_layout[middle_tile+2][1] = 10
+
+
+        for row in range(len(room_layout)):
+            for col in range(len(room_layout[row])):
+                pos_x = col + x_off
+                pos_y = row + y_off
+
+                id = room_layout[row][col]
+                if id in [0, 1, 2, 3, 4, 5, 10, 15, 20, 25, 30, 35, 40, 41, 42, 43, 44, 45, 50, 51, 52, 53, 54, 55]:
+                    walls.add(Wall(tiles_images[id], pos_x, pos_y))
+                else:
+                    ground.add(Wall(tiles_images[id], pos_x, pos_y))
+
+        # todo: close off exits
+
+map_width_px = len(tile_map[0]) * WALL_SIZE * ROOM_WIDTH
+map_height_px = len(tile_map) *  WALL_SIZE * ROOM_HEIGHT
+
+player = Player(map_width_px//2, map_height_px//2)
+ch1 = Enemy(map_width_px//2, map_height_px//2 + 250)
+
 visuals = pg.sprite.Group()
 characters.add(player, ch1)
 
-camera = Camera(len(tile_map[0]) * WALL_SIZE, len(tile_map) * WALL_SIZE)
+
+camera = Camera(map_width_px, map_height_px)
 
 running = True
 while running:
@@ -431,7 +543,7 @@ while running:
     if dx != 0 or dy != 0:
         player.move(dx, -dy)
 
-    screen.fill(WHITE)
+    screen.fill("#25141A")
     game_objs_groups = [ground, walls, characters, visuals]
 
     for group in game_objs_groups:
