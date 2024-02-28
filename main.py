@@ -24,21 +24,7 @@ def compare_rect(rect1, rect2):
             rect1.width != rect2.width or
             rect1.height != rect2.height)
 
-def collide(rect1, rect2):
-    return rect1.colliderect(rect2)
 
-def collide_x(rect1, rect2):
-    if rect1.colliderect(rect2):
-        if rect1.x + rect1.width <= rect2.x:
-            return True
-    return False
-
-
-def collide_y(rect1, rect2):
-    if rect1.colliderect(rect2):
-        if rect1.y - rect1.height <= rect2.y:
-            return True
-    return False
 
 
 class Animated():
@@ -100,9 +86,18 @@ class Character(pg.sprite.Sprite, Animated):
         Animated.__init__(self, images, (WALL_SIZE, WALL_SIZE), 400)
 
         self.last_attack_time = pg.time.get_ticks()
+        self.last_roam_time = pg.time.get_ticks()
         self.attack_cooldown = 0
         self.rect = self.image.get_rect(topleft=(x, y))
         self.attacks = []
+
+    def flip_model_on_move(self, dx):
+        if dx < 0 and not self.flipped_x:
+            self.flipped_x = True
+            self.animate()
+        elif dx > 0 and self.flipped_x:
+            self.flipped_x = False
+            self.animate()
 
 
 
@@ -111,52 +106,88 @@ class Enemy(Character):
         super().__init__(x, y, "skeleton_enemy_1")
         self.speed = 1
         self.last_known_player_position = None
+        self.roam_position = None
+        self.roam_wait_time = random.randint(1500, 2500)
 
     def change_position(self, move_x, move_y):
         if not self.is_colliding_with_walls(move_x, move_y):
             self.rect.x += move_x
             self.rect.y += move_y
+            return True
         else:
-            if not self.is_colliding_with_walls(move_x, 0):
+            # fix bug where enemy gets stuck in a wall
+            if not self.is_colliding_with_walls(math.copysign(max(1, abs(move_x)), move_x), 0):
                 self.rect.x += move_x
-            elif not self.is_colliding_with_walls(0, move_y):
+                return True
+            elif not self.is_colliding_with_walls(0, math.copysign(max(1, abs(move_y)), move_y)):
                 self.rect.y += move_y
+                return True
 
+        return False
 
-
-    def update(self, player_rect, obstacles, *args, **kwargs):
-        dx = player_rect.x - self.rect.x
-        dy = player_rect.y - self.rect.y
+    def move_in_direction(self, goal_position):
+        pos_x, pos_y = goal_position
+        dx = pos_x - self.rect.x
+        dy = pos_y - self.rect.y
         distance = math.sqrt(dx ** 2 + dy ** 2)
+
+
 
         if distance != 0:
             dx /= distance
             dy /= distance
 
-        move_x = math.copysign(max(1, abs(dx * self.speed)), dx)
-        move_y = math.copysign(max(1, abs(dy * self.speed)), dy)
+        move_x = math.copysign(max(0, abs(dx * self.speed)), dx)
+        move_y = math.copysign(max(0, abs(dy * self.speed)), dy)
 
+        self.flip_model_on_move(dx)
+
+        moved = self.change_position(move_x, move_y)
+
+        if distance <= 2 or not moved:
+            self.last_known_player_position = None
+            self.roam_position = None
+            self.last_roam_time = pg.time.get_ticks()
+            self.roam_wait_time = random.randint(1500, 2500)
+
+    def update(self, player_rect, obstacles, *args, **kwargs):
         if self.in_line_of_sight(player_rect, obstacles):
+            # if self.last_known_player_position == None:
+            #     print()
+                #visuals.add(Visual(self.dash_animation_images, self.rect.copy(), pg.time.get_ticks(), 200, not(self.flipped_x), rotation=dash_rotation))
+
+            self.move_in_direction((player_rect.x, player_rect.y))
             self.last_known_player_position = (player_rect.x, player_rect.y)
-            self.change_position(move_x, move_y)
+        elif self.last_known_player_position:
+            self.move_in_direction(self.last_known_player_position)
+        elif self.roam_position:
+            random_point = pg.Rect(self.rect)
+            random_point.x = self.roam_position[0]
+            random_point.y = self.roam_position[1]
+            random_point.width = 1
+            random_point.height = 1
+
+            self.in_line_of_sight(random_point, obstacles, True)
+            self.move_in_direction(self.roam_position)
         else:
-            if self.last_known_player_position:
-                last_player_x, last_player_y = self.last_known_player_position
-                dx = last_player_x - self.rect.x
-                dy = last_player_y - self.rect.y
-                distance = math.sqrt(dx ** 2 + dy ** 2)
+            dt = pg.time.get_ticks() - self.last_roam_time
 
-                if distance <= 5:
-                    self.last_known_player_position = None;
+            if dt < self.roam_wait_time:
+                if dt < self.roam_wait_time / 3 or dt < self.roam_wait_time / 3 * 2:
+                    self.flipped_x = not self.flipped_x
+                    self.animate_new_frame()
 
-                if distance != 0:
-                    dx /= distance
-                    dy /= distance
+                return
 
-                move_x = math.copysign(max(1, abs(dx * self.speed)), dx)
-                move_y = math.copysign(max(1, abs(dy * self.speed)), dy)
+            # chose random point, check if in line of sight
+            random_point = pg.Rect(self.rect)
+            random_point.x += random.randint(150, 350) * [-1, 1][random.randint(0, 1)]
+            random_point.y += random.randint(150, 350) * [-1, 1][random.randint(0, 1)]
+            random_point.width = 1
+            random_point.height = 1
 
-                self.change_position(move_x, move_y)
+            if self.in_line_of_sight(random_point, obstacles, True):
+                self.roam_position = (random_point.x, random_point.y)
 
         self.animate_new_frame()
 
@@ -167,17 +198,18 @@ class Enemy(Character):
                 return True
         return False
 
-    def in_line_of_sight(self, player_rect, obstacles):
+    def in_line_of_sight(self, position_rect, obstacles, ignore_view_distance=False):
         # draw the vision ray
         vision_start = self.rect.centerx + camera.rect.x, self.rect.centery + camera.rect.y
-        player_pos = player_rect.centerx + camera.rect.x, player_rect.centery + camera.rect.y
-        pg.draw.line(screen, (255, 255, 0), vision_start, player_pos, 2)
+        pos = position_rect.centerx + camera.rect.x, position_rect.centery + camera.rect.y
 
-        if math.dist(vision_start, player_pos) > 300:
+        pg.draw.line(screen, (255, 255, 0), vision_start, pos, 2)
+
+        if not ignore_view_distance and math.dist(vision_start, pos) > 250:
             return False
 
         for obstacle in obstacles:
-            if obstacle.rect.clipline((self.rect.center, player_rect.center)):
+            if obstacle.rect.clipline((self.rect.center, position_rect.center)):
                 return False
         return True
 
@@ -203,8 +235,8 @@ class Player(Character):
     def update_dash(self):
         if self.dashing:
             if self.rect.x != self.dest_x or self.rect.y != self.dest_y:
-                move_x = min(15, abs(self.rect.x - self.dest_x))
-                move_y = min(15, abs(self.rect.y - self.dest_y))
+                move_x = min(10, abs(self.rect.x - self.dest_x))
+                move_y = min(10, abs(self.rect.y - self.dest_y))
                 self.move(math.copysign(move_x, self.direction[0]), math.copysign(move_y, self.direction[1]), True)
 
             if self.rect.x == self.dest_x and self.rect.y == self.dest_y:
@@ -217,16 +249,19 @@ class Player(Character):
         new_x = self.rect.x + dx
         new_y = self.rect.y + dy
 
+        print(dx, dy)
+
+        self.direction = (0 if dx == 0 else math.copysign(1, dx), 0 if dy == 0 else math.copysign(1, dy))
+
         full_move_rect = pg.Rect(new_x, new_y, CHARACTER_SIZE, CHARACTER_SIZE)
         objs = [characters, walls]
 
         new_rect = full_move_rect
-        collision_function = collide
 
         is_collision = False
         for group in objs:
             for obj in group:
-                if collision_function(obj.rect, new_rect) and obj != self:
+                if obj.rect.colliderect(new_rect) and obj != self:
                     is_collision = True
                     break
             if is_collision:
@@ -241,8 +276,8 @@ class Player(Character):
             new_x_rect = pg.Rect(new_x, self.rect.y, CHARACTER_SIZE, CHARACTER_SIZE)
             new_y_rect = pg.Rect(self.rect.x, new_y, CHARACTER_SIZE, CHARACTER_SIZE)
 
-            is_collision_along_x = any(collide(obj.rect, new_x_rect) and obj != self for group in objs for obj in group)
-            is_collision_along_y = any(collide(obj.rect, new_y_rect) and obj != self for group in objs for obj in group)
+            is_collision_along_x = any(obj.rect.colliderect(new_x_rect) and obj != self for group in objs for obj in group)
+            is_collision_along_y = any(obj.rect.colliderect(new_y_rect) and obj != self for group in objs for obj in group)
 
             if not is_collision_along_x:
                 self.rect.x = new_x
@@ -270,18 +305,12 @@ class Player(Character):
         self.dest_y = new_y
         self.dashing = True
 
+        print(self.direction)
+
         self.flip_model_on_move(dx)
 
         dash_rotation = 90 if dy < 0 else -90 if dy > 0 else 0
         visuals.add(Visual(self.dash_animation_images, self.rect.copy(), pg.time.get_ticks(), 200, not(self.flipped_x), rotation=dash_rotation))
-
-    def flip_model_on_move(self, dx):
-        if dx < 0 and not self.flipped_x:
-            self.flipped_x = True
-            self.animate()
-        elif dx > 0 and self.flipped_x:
-            self.flipped_x = False
-            self.animate()
 
     def slash_attack(self, direction):
         if pg.time.get_ticks() - self.last_attack_time < self.attack_cooldown:
@@ -421,9 +450,7 @@ def connect_rooms(rooms):
 
 rooms = [1, 2, 3, 4]
 tile_map = connect_rooms(rooms)
-print("Tile map:")
-for row in tile_map:
-    print(row)
+
 
 characters = pg.sprite.Group()
 
