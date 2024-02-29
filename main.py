@@ -174,10 +174,8 @@ class Enemy(Character):
             dx /= distance
             dy /= distance
 
-
-
-        move_x = math.copysign(max(0, abs(dx * self.speed)), dx)
-        move_y = math.copysign(max(0, abs(dy * self.speed)), dy)
+        move_x = math.copysign(max(1, abs(dx * self.speed)), dx)
+        move_y = math.copysign(max(1, abs(dy * self.speed)), dy)
 
         self.flip_model_on_move(dx)
 
@@ -473,12 +471,13 @@ def connect_rooms(rooms):
 
 heart_image = pg.transform.scale(pg.image.load('heart.png'), (30, 28))
 coin_images = load_tileset("coin.png", 13, 13)
-
 coin_animated = Animated(coin_images, (30, 30), 200)
+
 
 def display_health(health):
     for i in range(health):
         screen.blit(heart_image, (10 + i * 40, 10))
+
 
 def display_coins(coins):
     screen.blit(coin_animated.image, (10, 50))
@@ -487,13 +486,58 @@ def display_coins(coins):
     screen.blit(text, (50, 52))
     coin_animated.animate_new_frame()
 
-def display_ui(coins, health):
+def display_mini_map(mini_map, current_cell):
+    GAP = 5
+    SCREEN_GAP = 15
+    MINI_MAP_SIZE = 120
+    CELL_SIZE = int(min(MINI_MAP_SIZE / len(mini_map[0]), MINI_MAP_SIZE / len(mini_map)))
+    MINI_MAP_SIZE += len(mini_map[0]) * GAP
+
+    for y, row in enumerate(mini_map):
+        for x, cell in enumerate(row):
+            color = (0, 0, 0) if cell == 0 else (255, 0, 0) if cell == current_cell else (0, 255, 0)
+            pg.draw.rect(screen, color,
+                         (WIDTH - MINI_MAP_SIZE + x * CELL_SIZE + GAP * x - SCREEN_GAP - 2, y * CELL_SIZE + GAP * y + SCREEN_GAP, CELL_SIZE, CELL_SIZE))
+
+
+def display_ui(coins, health, mini_map, current_cell):
     display_health(health)
     display_coins(coins)
+    display_mini_map(mini_map, current_cell)
+
+
+def trim_matrix(matrix):
+    min_row = len(matrix)
+    max_row = 0
+    min_col = len(matrix[0])
+    max_col = 0
+
+    for i in range(len(matrix)):
+        for j in range(len(matrix[0])):
+            if matrix[i][j] != 0:
+                min_row = min(min_row, i)
+                max_row = max(max_row, i)
+                min_col = min(min_col, j)
+                max_col = max(max_col, j)
+
+    size = max(max_row - min_row + 1, max_col - min_col + 1)
+
+    trimmed_matrix = []
+    for i in range(size):
+        row = []
+        for j in range(size):
+            if min_row + i < len(matrix) and min_col + j < len(matrix[0]):
+                row.append(matrix[min_row + i][min_col + j])
+            else:
+                row.append(0)
+        trimmed_matrix.append(row)
+
+    return trimmed_matrix
 
 
 rooms = [1, 2, 3, 4]
 tile_map = connect_rooms(rooms)
+mini_map = trim_matrix(tile_map)
 
 characters = pg.sprite.Group()
 
@@ -587,6 +631,9 @@ camera = Camera(map_width_px, map_height_px)
 coins = 10
 health = 3
 
+for row in tile_map:
+    print(row)
+
 running = True
 while running:
     for event in pg.event.get():
@@ -616,10 +663,10 @@ while running:
 
     keys = pg.key.get_pressed()
 
-    move_val = 5
+    speed = 4
 
-    dx = move_val if keys[pg.K_d] else -move_val if keys[pg.K_a] else 0
-    dy = move_val if keys[pg.K_w] else -move_val if keys[pg.K_s] else 0
+    dx = speed if keys[pg.K_d] else -speed if keys[pg.K_a] else 0
+    dy = speed if keys[pg.K_w] else -speed if keys[pg.K_s] else 0
 
     if dx != 0 or dy != 0:
         player.move(dx, -dy)
@@ -653,7 +700,12 @@ while running:
 
             visuals.add(attackVisual)
 
-    display_ui(coins, health)
+    wx = len(tile_map[0]) * 16
+    wy = len(tile_map) * 16
+    current_cell = tile_map[int(player.rect.y // WALL_SIZE // 16)][int(player.rect.x // WALL_SIZE // 16)]
+
+
+    display_ui(coins, health, mini_map, current_cell)
 
     visuals.update()
     characters.update(player.rect, walls)
