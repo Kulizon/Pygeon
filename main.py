@@ -486,24 +486,96 @@ def display_coins(coins):
     screen.blit(text, (50, 52))
     coin_animated.animate_new_frame()
 
-def display_mini_map(mini_map, current_cell):
+
+# def resize_map(map_data):
+#     min_size = 5
+#     original_rows, original_cols = len(map_data), len(map_data[0])
+#
+#     if original_rows >= min_size and original_cols >= min_size:
+#         return map_data
+#
+#     max_original_dimension = max(original_rows, original_cols)
+#     target_size = max(min_size, max_original_dimension * 2)
+#
+#     resized_map = [[0] * target_size for _ in range(target_size)]
+#
+#     start_row = (target_size - original_rows) // 2
+#     start_col = (target_size - original_cols) // 2
+#
+#     for i in range(original_rows):
+#         for j in range(original_cols):
+#             resized_map[start_row + i][start_col + j] = map_data[i][j]
+#
+#     return resized_map
+
+
+def display_full_map(map, current_cell):
+    gap = 5
+    cell_size = 40
+
+    map = trim_matrix(map)
+
+    map_width = len(map[0]) * cell_size + len(map[0]) * gap
+    map_height = len(map) * cell_size + len(map) * gap
+
+    offset_x = (screen.get_width() - map_width + cell_size) // 2
+    offset_y = (screen.get_height() - map_height + cell_size) // 2
+
+    for y, row in enumerate(map):
+        for x, cell in enumerate(row):
+            display_x = offset_x + x * (cell_size + gap)
+            display_y = offset_y + y * (cell_size + gap)
+
+            color = (0, 0, 0) if cell == 0 else (255, 0, 0) if cell == current_cell else (0, 255, 0)
+            pg.draw.rect(screen, color, (display_x, display_y, cell_size, cell_size))
+
+
+def display_mini_map(map, current_cell):
     GAP = 5
     SCREEN_GAP = 15
-    MINI_MAP_SIZE = 120
-    CELL_SIZE = int(min(MINI_MAP_SIZE / len(mini_map[0]), MINI_MAP_SIZE / len(mini_map)))
-    MINI_MAP_SIZE += len(mini_map[0]) * GAP
+    MINI_MAP_SIZE = 140
 
-    for y, row in enumerate(mini_map):
+    cell_position = [-1, -1]
+
+    for y, row in enumerate(map):
         for x, cell in enumerate(row):
-            color = (0, 0, 0) if cell == 0 else (255, 0, 0) if cell == current_cell else (0, 255, 0)
-            pg.draw.rect(screen, color,
-                         (WIDTH - MINI_MAP_SIZE + x * CELL_SIZE + GAP * x - SCREEN_GAP - 2, y * CELL_SIZE + GAP * y + SCREEN_GAP, CELL_SIZE, CELL_SIZE))
+            if cell == current_cell:
+                cell_position = [x, y]
+                break
+
+    mini_map = [[0 for _ in range(5)] for _ in range(5)]
+
+    start_x = max(0, cell_position[0] - 2)
+    end_x = min(len(map[0]), cell_position[0] + 3)
+    start_y = max(0, cell_position[1] - 2)
+    end_y = min(len(map), cell_position[1] + 3)
+
+    center_x = 2
+    center_y = 2
+
+    for y in range(start_y, end_y):
+        for x in range(start_x, end_x):
+            mini_map[center_y - (cell_position[1] - y)][center_x - (cell_position[0] - x)] = map[y][x]
+
+    cell_width = (MINI_MAP_SIZE - 2 * SCREEN_GAP) // (2 * 2 + 1)
+    cell_height = (MINI_MAP_SIZE - 2 * SCREEN_GAP) // (2 * 2 + 1)
+
+    for y in range(5):
+        for x in range(5):
+            map_width_px = (cell_width + GAP) * 6
+            display_x = WIDTH - SCREEN_GAP - map_width_px + (x+1) * (cell_width + GAP)
+            display_y = SCREEN_GAP + y * cell_height + GAP * y
+            cell_value = mini_map[y][x]
+            color = (255, 0, 0) if cell_value == current_cell else (0, 255, 0) if cell_value != 0 else (0, 0, 0)
+            pg.draw.rect(screen, color, (display_x, display_y, cell_width, cell_height))
+
 
 
 def display_ui(coins, health, mini_map, current_cell):
     display_health(health)
     display_coins(coins)
     display_mini_map(mini_map, current_cell)
+    display_full_map(mini_map, current_cell)
 
 
 def trim_matrix(matrix):
@@ -520,24 +592,23 @@ def trim_matrix(matrix):
                 min_col = min(min_col, j)
                 max_col = max(max_col, j)
 
-    size = max(max_row - min_row + 1, max_col - min_col + 1)
-
+    # Extract the trimmed matrix
     trimmed_matrix = []
-    for i in range(size):
-        row = []
-        for j in range(size):
-            if min_row + i < len(matrix) and min_col + j < len(matrix[0]):
-                row.append(matrix[min_row + i][min_col + j])
-            else:
-                row.append(0)
+    for i in range(min_row, max_row + 1):
+        row = matrix[i][min_col:max_col + 1]
         trimmed_matrix.append(row)
 
     return trimmed_matrix
 
 
-rooms = [1, 2, 3, 4]
+rooms = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 tile_map = connect_rooms(rooms)
 mini_map = trim_matrix(tile_map)
+discovered_mini_map = deepcopy(mini_map)
+for y, row in enumerate(discovered_mini_map):
+    for x, el in enumerate(row):
+        if el != 1:
+            discovered_mini_map[y][x] = 0
 
 characters = pg.sprite.Group()
 
@@ -631,8 +702,7 @@ camera = Camera(map_width_px, map_height_px)
 coins = 10
 health = 3
 
-for row in tile_map:
-    print(row)
+current_cell = tile_map[int(player.rect.y // WALL_SIZE // 16)][int(player.rect.x // WALL_SIZE // 16)]
 
 running = True
 while running:
@@ -702,10 +772,16 @@ while running:
 
     wx = len(tile_map[0]) * 16
     wy = len(tile_map) * 16
-    current_cell = tile_map[int(player.rect.y // WALL_SIZE // 16)][int(player.rect.x // WALL_SIZE // 16)]
 
+    new_cell = tile_map[int(player.rect.y // WALL_SIZE // 16)][int(player.rect.x // WALL_SIZE // 16)]
+    if current_cell != new_cell:
+        for y, row in enumerate(mini_map):
+            for x, el in enumerate(row):
+                if el == new_cell:
+                    discovered_mini_map[y][x] = new_cell
 
-    display_ui(coins, health, mini_map, current_cell)
+    current_cell = new_cell
+    display_ui(coins, health, discovered_mini_map, current_cell)
 
     visuals.update()
     characters.update(player.rect, walls)
