@@ -77,11 +77,13 @@ class Map_Tile(pg.sprite.Sprite):
         self.rect = self.image.get_rect(topleft=(x * WALL_SIZE, y * WALL_SIZE))
 
 class Animated_Map_Tile(Map_Tile, Animated):
-    def __init__(self, images_path, x, y, frame_duration):
+    def __init__(self, images_path, x, y, frame_duration, flip_x=False, flip_y=False, rotate=0, size=None):
         images = load_images_from_folder(images_path)
 
         Map_Tile.__init__(self, images[0], x, y)
-        Animated.__init__(self, images, self.rect.size, frame_duration)
+        if size:
+            self.rect.size = size
+        Animated.__init__(self, images, self.rect.size, frame_duration, flip_x, flip_y, rotate)
 
     def update(self):
         self.animate_new_frame()
@@ -94,7 +96,6 @@ class Character(pg.sprite.Sprite, Animated):
         images = load_images_from_folder(images_path)
         Animated.__init__(self, images, (CHARACTER_SIZE, CHARACTER_SIZE), 400)
         self.last_attack_time = pg.time.get_ticks()
-        self.attack_cooldown = 700
         self.attack_cooldown = 0
         self.rect = self.image.get_rect(topleft=(x, y))
         self.attacks = []
@@ -146,6 +147,13 @@ class Character(pg.sprite.Sprite, Animated):
 
         self.attacks.append(attack)
 
+class Trap(Animated_Map_Tile):
+    def __init__(self, images_path, x, y, frame_duration, cooldown, attack_dir, flip_x=False, flip_y=False, rotate=0, size = None):
+        Animated_Map_Tile.__init__(self, images_path, x, y, frame_duration, flip_x, flip_y, rotate, size)
+
+        self.attack_dir = attack_dir
+        self.attack_cooldown = cooldown
+        self.damage = 1
 
 class Enemy(Character):
     def __init__(self, x, y):
@@ -301,8 +309,9 @@ class Player(Character):
         self.dash_animation_images = load_images_from_folder("effects/dash")
         self.move_animation_images = load_images_from_folder("effects/step")
         self.last_move_animation = pg.time.get_ticks()
-        self.move_direction = [0, 0]
+        self.move_direction = [1, 0]
         self.current_dash_length = 0
+        self.goal_dash_length = 100
 
     def update(self, *args, **kwargs):
         self.animate_new_frame()
@@ -312,7 +321,7 @@ class Player(Character):
         if self.dashing:
             self.move_player(self.move_direction[0], self.move_direction[1], True)
 
-            if self.current_dash_length >= 100:
+            if self.current_dash_length >= self.goal_dash_length:
                 self.dashing = False
                 self.current_dash_length = 0
 
@@ -326,8 +335,10 @@ class Player(Character):
             dy /= distance
 
         if self.dashing:
-            dx *= self.speed * 2
-            dy *= self.speed * 2
+            t = min(1, int(self.current_dash_length / self.goal_dash_length))
+            easing_factor = t * (2 - t)
+            dx *= self.speed * 2 * (1 + easing_factor)
+            dy *= self.speed * 2 * (1 + easing_factor)
         else:
             dx *= self.speed
             dy *= self.speed
@@ -508,7 +519,6 @@ def display_coins(coins):
     coin_animated.animate_new_frame()
 
 
-
 def display_full_map(map, current_cell):
     gap = 5
     cell_size = 40
@@ -609,7 +619,7 @@ def trim_matrix(matrix):
     return trimmed_matrix
 
 
-rooms = [i+1 for i in range(16)]
+rooms = [i+1 for i in range(2)]
 room_map = connect_rooms(rooms)
 mini_map = trim_matrix(room_map)
 discovered_mini_map = deepcopy(mini_map)
@@ -619,6 +629,7 @@ for y, row in enumerate(discovered_mini_map):
             discovered_mini_map[y][x] = 0
 
 characters = pg.sprite.Group()
+traps = pg.sprite.Group()
 
 room_tile_maps = []
 for i in range(1, 7):
@@ -642,20 +653,21 @@ def is_empty_space(layout, decorations_layout, x, y):
             and decorations_layout[y][x] == -1)
 
 
-def find_wall_with_free_spaces(layout, decorations_layout, direction, x, y):
+def find_wall_with_free_n_spaces(layout, decorations_layout, direction, x, y, n):
     directions = {
         'up': (0, -1),
         'down': (0, 1),
         'left': (-1, 0),
         'right': (1, 0)
     }
+
     dx, dy = directions[direction]
 
     if layout[y][x] in wall_ids:
-        if all(is_empty_space(layout, decorations_layout, x + i * dx, y + i * dy) for i in range(1, 4)):
-            return True
-    return False
-
+        if all(is_empty_space(layout, decorations_layout, x + i * dx, y + i * dy) for i in range(1, n + 1)):
+            print(directions[direction])
+            return directions[direction]
+    return (0, 0)
 
 empty_decorations_layout = [[-1 for _ in range(ROOM_HEIGHT)] for _ in range(ROOM_WIDTH)]
 
@@ -736,9 +748,31 @@ for i in range(len(room_map)):
 
             for row, col in coordinates:
                 if room_layout[row][col] in wall_ids and decorations_layout[row][col] == -1:
-                    for direction in ['up', 'down', 'left', 'right']:
-                        if find_wall_with_free_spaces(room_layout, decorations_layout, direction, col, row):
-                            decorations_layout[row][col] = 151 #flamethrowe id, todo: change it later i beg you
+                    for direction in ['down', 'left', 'right']:
+                        attack_dir = find_wall_with_free_n_spaces(room_layout, decorations_layout, direction, col, row, 3)
+
+                        pos_x = col + x_off
+                        pos_y = row + y_off
+
+                        if attack_dir[0] == -1:
+                            pos_x -= 2
+                        else:
+                            pos_x += 1
+
+                        if attack_dir[0] or attack_dir[1]:
+                            if attack_dir[0]:
+                                images_path = "items_and_traps_animations/flamethrower_sideways"
+                            else:
+                                images_path = "items_and_traps_animations/flamethrower_front"
+
+                            rotate = 180 if attack_dir[0] == -1 else 0
+
+                            size = ((abs(attack_dir[0]) + 1) * WALL_SIZE, (abs(attack_dir[1]) + 1) * WALL_SIZE)
+
+                            flamethrower = Trap(images_path, pos_x, pos_y, 200, 1500, attack_dir, False, False, rotate, size)
+                            traps.add(flamethrower)
+
+                            decorations_layout[row][col] = 1000 # mark as occupied
                             added_flamethrower = True
                             break
                 if added_flamethrower:
@@ -760,14 +794,13 @@ for i in range(len(room_map)):
                 if decorations_layout != None:
                     id = decorations_layout[row][col]
 
-                    if id >= 0:
+                    if 0 <= id < len(tiles_images):
                         animations_images_data = {
                             74: ["items_and_traps_animations/flag", 350],
                             93: ["items_and_traps_animations/candlestick_1", 250],
                             95: ["items_and_traps_animations/candlestick_2", 250],
                             90: ["items_and_traps_animations/torch_front", 250],
                             91: ["items_and_traps_animations/torch_sideways", 250],
-                            151: ["items_and_traps_animations/flamethrower_front", 300]
                         }
 
                         if id in animations_images_data:
@@ -828,7 +861,7 @@ while running:
 
     screen.fill("#25141A")
     
-    game_objs_groups = [ground, walls, decorations, characters, visuals]
+    game_objs_groups = [ground, walls, decorations, characters, traps, visuals]
     for group in game_objs_groups:
         for obj in group:
             screen.blit(obj.image, (obj.rect.x + camera.rect.x, obj.rect.y + camera.rect.y))
@@ -892,6 +925,7 @@ while running:
 
     visuals.update()
     decorations.update()
+    traps.update()
     characters.update(player.rect, walls)
 
     pg.display.flip()
