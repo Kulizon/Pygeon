@@ -88,6 +88,7 @@ class Character(pg.sprite.Sprite, Animated):
         self.attack_cooldown = 0
         self.rect = self.image.get_rect(topleft=(x, y))
         self.attacks = []
+        self.speed = 1
 
     def flip_model_on_move(self, dx):
         if dx < 0 and not self.flipped_x:
@@ -140,7 +141,6 @@ class Enemy(Character):
     def __init__(self, x, y):
         super().__init__(x, y, "skeleton_enemy_1")
         self.attack_dir = None
-        self.speed = 1
         self.health = 100
         self.full_health = 100
         self.last_known_player_position = None
@@ -177,8 +177,11 @@ class Enemy(Character):
             dx /= distance
             dy /= distance
 
-        move_x = math.copysign(max(1, abs(dx * self.speed)), dx)
-        move_y = math.copysign(max(1, abs(dy * self.speed)), dy)
+        dx *= self.speed
+        dy *= self.speed
+
+        move_x = math.copysign(max(1, abs(dx)), dx)
+        move_y = math.copysign(max(1, abs(dy)), dy)
 
         self.flip_model_on_move(dx)
 
@@ -281,6 +284,7 @@ class Player(Character):
         self.coins = 0
         self.health = 3
         self.full_health = 6
+        self.speed = 5
         self.dashing = False
         self.last_dash_time = pg.time.get_ticks()
         self.dash_cooldown = 500
@@ -298,14 +302,22 @@ class Player(Character):
             if self.rect.x != self.dest_x or self.rect.y != self.dest_y:
                 move_x = min(12, abs(self.rect.x - self.dest_x))
                 move_y = min(12, abs(self.rect.y - self.dest_y))
-                self.move(math.copysign(move_x, self.direction[0]), math.copysign(move_y, self.direction[1]), True)
+                self.move_player(math.copysign(move_x, self.direction[0]), math.copysign(move_y, self.direction[1]), True)
 
             if self.rect.x == self.dest_x and self.rect.y == self.dest_y:
                 self.dashing = False
 
-    def move(self, dx, dy, ignore_dash_check=False):
+    def move_player(self, dx, dy, ignore_dash_check=False):
         if self.dashing and not ignore_dash_check:
             return
+
+        distance = math.sqrt(dx ** 2 + dy ** 2)
+        if distance != 0:
+            dx /= distance
+            dy /= distance
+
+        dx *= self.speed
+        dy *= self.speed
 
         moved = True
 
@@ -728,13 +740,11 @@ while running:
 
     keys = pg.key.get_pressed()
 
-    speed = 4
-
-    dx = speed if keys[pg.K_d] else -speed if keys[pg.K_a] else 0
-    dy = speed if keys[pg.K_w] else -speed if keys[pg.K_s] else 0
+    dx = 1 if keys[pg.K_d] else -1 if keys[pg.K_a] else 0
+    dy = 1 if keys[pg.K_w] else -1 if keys[pg.K_s] else 0
 
     if dx != 0 or dy != 0:
-        player.move(dx, -dy)
+        player.move_player(dx, -dy)
 
     screen.fill("#25141A")
     
