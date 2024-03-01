@@ -285,6 +285,8 @@ class Player(Character):
         self.last_dash_time = pg.time.get_ticks()
         self.dash_cooldown = 500
         self.dash_animation_images = load_images_from_folder("effects/dash")
+        self.move_animation_images = load_images_from_folder("effects/step")
+        self.last_move_animation = pg.time.get_ticks()
         self.direction = [0, 0]
 
     def update(self, *args, **kwargs):
@@ -304,6 +306,8 @@ class Player(Character):
     def move(self, dx, dy, ignore_dash_check=False):
         if self.dashing and not ignore_dash_check:
             return
+
+        moved = True
 
         new_x = self.rect.x + dx
         new_y = self.rect.y + dy
@@ -343,8 +347,13 @@ class Player(Character):
             else:
                 # both axes have collisions, cannot move
                 self.dashing = False
+                moved = False
                 self.last_dash_time = pg.time.get_ticks()
                 print("Collision, cannot move")
+
+        if moved and pg.time.get_ticks() - self.last_move_animation > 220:
+            visuals.add(Visual(self.move_animation_images, self.rect.move(-25 * self.direction[0], -25 * self.direction[1]).inflate(-35,-35), pg.time.get_ticks(), 250))
+            self.last_move_animation = pg.time.get_ticks()
 
     def dash(self):
         if pg.time.get_ticks() - self.last_dash_time < self.dash_cooldown:
