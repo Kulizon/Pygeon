@@ -208,7 +208,7 @@ class ArrowTrap(Trap):
 
         rotate = 180 if attack_dir[0] == 1 else 0
 
-        Trap.__init__(self, images_path, x, y, 100, 2000, attack_dir, size, rotate)
+        Trap.__init__(self, images_path, x, y, 50, 2000, attack_dir, size, rotate)
         self.rect = self.rect.move(14 * attack_dir[0], 0)
 
         self.arrows = []
@@ -216,12 +216,20 @@ class ArrowTrap(Trap):
     def update(self, *args, **kwargs):
         super().update(*args, **kwargs)
 
-        size = CHARACTER_SIZE * 0.95
+        arrow_width = CHARACTER_SIZE * 0.7
+        arrow_heigt = CHARACTER_SIZE * 0.45
         if self.cur_frame == self.last_frame:
-            arrow_rect = pg.Rect(self.rect.x + CHARACTER_SIZE * self.attack_dir[0], self.rect.y + CHARACTER_SIZE * self.attack_dir[1], size, size)
+            arrow_rect = pg.Rect(self.rect.x + CHARACTER_SIZE * self.attack_dir[0], self.rect.y + CHARACTER_SIZE * self.attack_dir[1], arrow_width, arrow_heigt)
             new_arrow = pg.sprite.Sprite()
             new_arrow.rect = arrow_rect
-            new_arrow.image = pg.transform.scale(pg.image.load("arrow_horizontal.png") if attack_dir[0] else pg.image.load("arrow_vertical.png.png"), (size, size))
+
+            if attack_dir[0]:
+                image_path = "arrow_horizontal.png"
+                new_arrow.rect.y += (CHARACTER_SIZE - arrow_heigt) // 2
+            else:
+                image_path = "arrow_vertical.png"
+
+            new_arrow.image = pg.transform.scale(pg.image.load(image_path), (arrow_width, arrow_heigt))
             new_arrow.image = pg.transform.rotate(new_arrow.image, 180 if attack_dir[0] == 1 else 0)
 
             self.arrows.append(new_arrow)
