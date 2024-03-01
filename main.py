@@ -79,10 +79,10 @@ class Wall(pg.sprite.Sprite):
 class Character(pg.sprite.Sprite, Animated):
     def __init__(self, x, y, images_path):
         super().__init__()
-
+        self.health = 0
+        self.full_health = 0
         images = load_images_from_folder(images_path)
         Animated.__init__(self, images, (WALL_SIZE, WALL_SIZE), 400)
-
         self.last_attack_time = pg.time.get_ticks()
         self.attack_cooldown = 700
         self.attack_cooldown = 0
@@ -129,7 +129,8 @@ class Character(pg.sprite.Sprite, Animated):
             'start_time': pg.time.get_ticks(),
             'duration': 150,
             'flipped_x': direction[0] == -1,
-            'flipped_y': direction[1] == 1
+            'flipped_y': direction[1] == 1,
+            "damage": 34
         }
 
         self.attacks.append(attack)
@@ -140,6 +141,8 @@ class Enemy(Character):
         super().__init__(x, y, "skeleton_enemy_1")
         self.attack_dir = None
         self.speed = 1
+        self.health = 100
+        self.full_health = 100
         self.last_known_player_position = None
         self.roam_position = None
         self.last_roam_time = pg.time.get_ticks()
@@ -204,7 +207,7 @@ class Enemy(Character):
             self.last_known_player_position = (player_rect.x, player_rect.y)
 
             distance_to_player = (self.rect.x - player_rect.x) ** 2 + (self.rect.y - player_rect.y) ** 2
-            if distance_to_player < 13000 and pg.time.get_ticks() - self.last_attack_time > self.attack_cooldown:
+            if distance_to_player < 9000 and pg.time.get_ticks() - self.last_attack_time > self.attack_cooldown:
 
                 if abs(self.rect.x - player_rect.x) > abs((self.rect.y - player_rect.y)):
                     self.attack_dir = [math.copysign(1, player_rect.x - self.rect.x), 0]
@@ -270,19 +273,18 @@ class Enemy(Character):
         return True
 
 
-
-
 class Player(Character):
     def __init__(self, start_x, start_y):
         super().__init__(start_x, start_y, "player_character")
         self.dest_x = self.rect.x
         self.dest_y = self.rect.y
-
+        self.coins = 0
+        self.health = 3
+        self.full_health = 6
         self.dashing = False
         self.last_dash_time = pg.time.get_ticks()
         self.dash_cooldown = 500
         self.dash_animation_images = load_images_from_folder("effects/dash")
-
         self.direction = [0, 0]
 
     def update(self, *args, **kwargs):
@@ -482,58 +484,41 @@ def display_health(health):
 def display_coins(coins):
     screen.blit(coin_animated.image, (10, 50))
     font = pg.font.Font("retro_font.ttf", 22)
-    text = font.render("0" * (3 - int(math.log10(coins))) + str(coins), True, WHITE)
+    text = font.render("0" * (3 - int(math.log10(coins+1))) + str(coins), True, WHITE)
     screen.blit(text, (50, 52))
     coin_animated.animate_new_frame()
 
-
-# def resize_map(map_data):
-#     min_size = 5
-#     original_rows, original_cols = len(map_data), len(map_data[0])
-#
-#     if original_rows >= min_size and original_cols >= min_size:
-#         return map_data
-#
-#     max_original_dimension = max(original_rows, original_cols)
-#     target_size = max(min_size, max_original_dimension * 2)
-#
-#     resized_map = [[0] * target_size for _ in range(target_size)]
-#
-#     start_row = (target_size - original_rows) // 2
-#     start_col = (target_size - original_cols) // 2
-#
-#     for i in range(original_rows):
-#         for j in range(original_cols):
-#             resized_map[start_row + i][start_col + j] = map_data[i][j]
-#
-#     return resized_map
 
 
 def display_full_map(map, current_cell):
     gap = 5
     cell_size = 40
-
     map = trim_matrix(map)
 
-    map_width = len(map[0]) * cell_size + len(map[0]) * gap
-    map_height = len(map) * cell_size + len(map) * gap
+    map_width = len(map[0]) * cell_size + (len(map[0]) - 1) * gap
+    map_height = len(map) * cell_size + (len(map) - 1) * gap
 
-    offset_x = (screen.get_width() - map_width + cell_size) // 2
-    offset_y = (screen.get_height() - map_height + cell_size) // 2
+    offset_x = (WIDTH - map_width) // 2
+    offset_y = (HEIGHT - map_height) // 2
+
+    bg_width = max(400, map_width + 100)
+    bg_height = max(400, map_height + 100)
+
+    pg.draw.rect(screen, (0, 0, 0), ((WIDTH - bg_width)//2, (HEIGHT - bg_height)//2, bg_width, bg_width))
 
     for y, row in enumerate(map):
         for x, cell in enumerate(row):
             display_x = offset_x + x * (cell_size + gap)
             display_y = offset_y + y * (cell_size + gap)
 
-            color = (0, 0, 0) if cell == 0 else (255, 0, 0) if cell == current_cell else (0, 255, 0)
+            color = (0, 0, 120) if cell == 0 else (255, 0, 0) if cell == current_cell else (0, 255, 0)
             pg.draw.rect(screen, color, (display_x, display_y, cell_size, cell_size))
 
 
 def display_mini_map(map, current_cell):
-    GAP = 5
-    SCREEN_GAP = 15
-    MINI_MAP_SIZE = 140
+    gap = 5
+    screen_gap = 15
+    mini_map_size = 140
 
     cell_position = [-1, -1]
 
@@ -557,14 +542,18 @@ def display_mini_map(map, current_cell):
         for x in range(start_x, end_x):
             mini_map[center_y - (cell_position[1] - y)][center_x - (cell_position[0] - x)] = map[y][x]
 
-    cell_width = (MINI_MAP_SIZE - 2 * SCREEN_GAP) // (2 * 2 + 1)
-    cell_height = (MINI_MAP_SIZE - 2 * SCREEN_GAP) // (2 * 2 + 1)
+    cell_width = (mini_map_size - 2 * screen_gap) // (2 * 2 + 1)
+    cell_height = (mini_map_size - 2 * screen_gap) // (2 * 2 + 1)
+
+    map_size_px = (cell_width + gap) * 6
+    cells_gap = screen_gap - (mini_map_size - map_size_px) // 2
+
+    pg.draw.rect(screen, (0, 0, 0), (WIDTH - screen_gap - map_size_px, screen_gap, map_size_px, map_size_px))
 
     for y in range(5):
         for x in range(5):
-            map_width_px = (cell_width + GAP) * 6
-            display_x = WIDTH - SCREEN_GAP - map_width_px + (x+1) * (cell_width + GAP)
-            display_y = SCREEN_GAP + y * cell_height + GAP * y
+            display_x = WIDTH - cells_gap - map_size_px + (x+1) * (cell_width + gap)
+            display_y = cells_gap + 2 + y * cell_height + gap * y
             cell_value = mini_map[y][x]
             color = (255, 0, 0) if cell_value == current_cell else (0, 255, 0) if cell_value != 0 else (0, 0, 0)
             pg.draw.rect(screen, color, (display_x, display_y, cell_width, cell_height))
@@ -575,7 +564,7 @@ def display_ui(coins, health, mini_map, current_cell):
     display_health(health)
     display_coins(coins)
     display_mini_map(mini_map, current_cell)
-    display_full_map(mini_map, current_cell)
+    #display_full_map(mini_map, current_cell)
 
 
 def trim_matrix(matrix):
@@ -699,9 +688,6 @@ characters.add(player, ch1)
 
 camera = Camera(map_width_px, map_height_px)
 
-coins = 10
-health = 3
-
 current_cell = tile_map[int(player.rect.y // WALL_SIZE // 16)][int(player.rect.x // WALL_SIZE // 16)]
 
 running = True
@@ -746,14 +732,27 @@ while running:
     game_objs_groups = [ground, walls, characters, visuals]
     for group in game_objs_groups:
         for obj in group:
-            screen.blit(obj.image, (obj.rect.x + camera.rect.x, obj.rect.y+ camera.rect.y))
+            screen.blit(obj.image, (obj.rect.x + camera.rect.x, obj.rect.y + camera.rect.y))
 
     camera.update(player)
 
     for char in characters:
+        # display health bar
+        if char != player:
+            health_bar_length = 60
+            health_bar_height = 10
+            current_health_length = (char.health / char.full_health) * health_bar_length
+
+            pos_x = char.rect.x - (health_bar_length - CHARACTER_SIZE) // 2 + camera.rect.x
+            pos_y = char.rect.y - 14 - health_bar_height // 2 + camera.rect.y
+
+            pg.draw.rect(screen, (0, 0, 0), (pos_x, pos_y, health_bar_length, health_bar_height))
+            pg.draw.rect(screen, (255, 0, 0), (pos_x, pos_y, current_health_length, health_bar_height))
+
         for attack in char.attacks:
             dest = attack['dest']
             effect = pg.Surface(attack['dim'])
+            dmg = attack['damage']
 
             attackRect = effect.get_rect()
             attackRect.x = dest[0]
@@ -761,6 +760,15 @@ while running:
 
             for testedChar in characters:
                 if attackRect.colliderect(testedChar) and testedChar != char:
+                    if testedChar == player:
+                        player.health -= 1
+                    else:
+                        testedChar.health -= dmg
+                        if testedChar.health <= 0:
+                            characters.remove(testedChar)
+                            images = load_images_from_folder("effects/explosion")
+                            visuals.add(Visual(images, testedChar.rect.inflate(20, 20), pg.time.get_ticks(), 400))
+
                     print('hit')
 
             char.attacks.remove(attack)
@@ -781,7 +789,7 @@ while running:
                     discovered_mini_map[y][x] = new_cell
 
     current_cell = new_cell
-    display_ui(coins, health, discovered_mini_map, current_cell)
+    display_ui(player.coins, player.health, discovered_mini_map, current_cell)
 
     visuals.update()
     characters.update(player.rect, walls)
