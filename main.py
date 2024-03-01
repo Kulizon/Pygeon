@@ -33,6 +33,7 @@ class Animated():
         self.frame_duration = frame_duration
         self.last_frame_time = pg.time.get_ticks()
         self.cur_frame = 0
+        self.last_frame = len(images) - 1
         self.size = size
 
         self.flipped_x = flipped_x
@@ -147,13 +148,28 @@ class Character(pg.sprite.Sprite, Animated):
 
         self.attacks.append(attack)
 
-class Trap(Animated_Map_Tile):
-    def __init__(self, images_path, x, y, frame_duration, cooldown, attack_dir, flip_x=False, flip_y=False, rotate=0, size = None):
-        Animated_Map_Tile.__init__(self, images_path, x, y, frame_duration, flip_x, flip_y, rotate, size)
+class Trap(pg.sprite.Sprite, Animated):
+    def __init__(self, images_path, x, y, frame_duration, cooldown, attack_dir, size, rotate=0):
+        super().__init__()
+        self.rect = pg.Rect(x * WALL_SIZE, y * WALL_SIZE, size[0], size[1])
+        images = load_images_from_folder(images_path)
+        Animated.__init__(self, images, size, frame_duration, False, False, rotate)
 
         self.attack_dir = attack_dir
         self.attack_cooldown = cooldown
-        self.damage = 1
+        self.last_attack = pg.time.get_ticks()
+        self.already_hit = False
+        self.damage = 0
+
+    def update(self, *args, **kwargs):
+        print(self.already_hit)
+        self.damage = 0 if (self.cur_frame in [0, self.last_frame] or self.already_hit) else 1
+
+        if pg.time.get_ticks() - self.last_attack > self.attack_cooldown:
+            self.animate_new_frame()
+            if self.cur_frame == self.last_frame:
+                self.last_attack = pg.time.get_ticks()
+                self.already_hit = False
 
 class Enemy(Character):
     def __init__(self, x, y):
@@ -665,7 +681,6 @@ def find_wall_with_free_n_spaces(layout, decorations_layout, direction, x, y, n)
 
     if layout[y][x] in wall_ids:
         if all(is_empty_space(layout, decorations_layout, x + i * dx, y + i * dy) for i in range(1, n + 1)):
-            print(directions[direction])
             return directions[direction]
     return (0, 0)
 
@@ -759,6 +774,9 @@ for i in range(len(room_map)):
                         else:
                             pos_x += 1
 
+                        if attack_dir[1]:
+                            pos_x -= 1
+
                         if attack_dir[0] or attack_dir[1]:
                             if attack_dir[0]:
                                 images_path = "items_and_traps_animations/flamethrower_sideways"
@@ -769,7 +787,7 @@ for i in range(len(room_map)):
 
                             size = ((abs(attack_dir[0]) + 1) * WALL_SIZE, (abs(attack_dir[1]) + 1) * WALL_SIZE)
 
-                            flamethrower = Trap(images_path, pos_x, pos_y, 200, 1500, attack_dir, False, False, rotate, size)
+                            flamethrower = Trap(images_path, pos_x, pos_y, 100, 1500, attack_dir, size, rotate)
                             traps.add(flamethrower)
 
                             decorations_layout[row][col] = 1000 # mark as occupied
@@ -777,8 +795,6 @@ for i in range(len(room_map)):
                             break
                 if added_flamethrower:
                     break
-
-
 
         for row in range(len(room_layout)):
             for col in range(len(room_layout[row])):
@@ -868,6 +884,13 @@ while running:
 
     camera.update(player)
 
+    for trap in traps:
+        if player.rect.colliderect(trap.rect) and trap.damage > 0:
+            print("hit")
+            print(trap.damage)
+            player.health -= trap.damage
+            trap.already_hit = True
+
     for char in characters:
         # display health bar
         if char != player:
@@ -900,7 +923,6 @@ while running:
                             characters.remove(testedChar)
                             images = load_images_from_folder("effects/explosion")
                             visuals.add(Visual(images, testedChar.rect.inflate(20, 20), pg.time.get_ticks(), 400))
-
                     print('hit')
 
             char.attacks.remove(attack)
