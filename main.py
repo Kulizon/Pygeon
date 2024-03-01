@@ -162,14 +162,76 @@ class Trap(pg.sprite.Sprite, Animated):
         self.damage = 0
 
     def update(self, *args, **kwargs):
-        print(self.already_hit)
-        self.damage = 0 if (self.cur_frame in [0, self.last_frame] or self.already_hit) else 1
-
         if pg.time.get_ticks() - self.last_attack > self.attack_cooldown:
             self.animate_new_frame()
             if self.cur_frame == self.last_frame:
                 self.last_attack = pg.time.get_ticks()
                 self.already_hit = False
+
+class FlamethrowerTrap(Trap):
+    def __init__(self, x, y, attack_dir):
+        if attack_dir[0] == -1:
+            x -= 2
+        elif attack_dir[0] == 1:
+            x += 1
+
+        if attack_dir[0]:
+            images_path = "items_and_traps_animations/flamethrower_sideways"
+        else:
+            images_path = "items_and_traps_animations/flamethrower_front"
+
+        rotate = 180 if attack_dir[0] == -1 else 0
+
+        size = ((abs(attack_dir[0]) + 1) * WALL_SIZE, (abs(attack_dir[1]) + 1) * WALL_SIZE)
+
+        super().__init__(images_path, x, y, 150, 1000, attack_dir, size, rotate)
+
+    def update(self, *args, **kwargs):
+        self.damage = 0 if (self.cur_frame in [0, self.last_frame] or self.already_hit) else 1
+
+        super().update(*args, **kwargs)
+
+
+class ArrowTrap(Trap):
+    def __init__(self, x, y, attack_dir):
+        size = ((abs(attack_dir[0]) + 1) * WALL_SIZE, (abs(attack_dir[1]) + 1) * WALL_SIZE)
+
+        if attack_dir[0]:
+            images_path = "items_and_traps_animations/arrow_horizontal"
+        else:
+            images_path = "items_and_traps_animations/arrow_vertical"
+
+        if attack_dir[0] == -1:
+            x -= 1
+        # elif attack_dir[0] == 1:
+        #     x += 1
+
+        rotate = 180 if attack_dir[0] == 1 else 0
+
+        Trap.__init__(self, images_path, x, y, 100, 2000, attack_dir, size, rotate)
+        self.rect = self.rect.move(14 * attack_dir[0], 0)
+
+        self.arrows = []
+
+    def update(self, *args, **kwargs):
+        super().update(*args, **kwargs)
+
+        size = CHARACTER_SIZE * 0.95
+        if self.cur_frame == self.last_frame:
+            arrow_rect = pg.Rect(self.rect.x + CHARACTER_SIZE * self.attack_dir[0], self.rect.y + CHARACTER_SIZE * self.attack_dir[1], size, size)
+            new_arrow = pg.sprite.Sprite()
+            new_arrow.rect = arrow_rect
+            new_arrow.image = pg.transform.scale(pg.image.load("arrow_horizontal.png") if attack_dir[0] else pg.image.load("arrow_vertical.png.png"), (size, size))
+            new_arrow.image = pg.transform.rotate(new_arrow.image, 180 if attack_dir[0] == 1 else 0)
+
+            self.arrows.append(new_arrow)
+            self.cur_frame = 0
+
+        for arrow in self.arrows:
+            arrow.rect.x += 8 * self.attack_dir[0]
+            arrow.rect.y += 8 * self.attack_dir[1]
+
+
 
 class Enemy(Character):
     def __init__(self, x, y):
@@ -769,25 +831,8 @@ for i in range(len(room_map)):
                         pos_x = col + x_off
                         pos_y = row + y_off
 
-                        if attack_dir[0] == -1:
-                            pos_x -= 2
-                        else:
-                            pos_x += 1
-
-                        if attack_dir[1]:
-                            pos_x -= 1
-
                         if attack_dir[0] or attack_dir[1]:
-                            if attack_dir[0]:
-                                images_path = "items_and_traps_animations/flamethrower_sideways"
-                            else:
-                                images_path = "items_and_traps_animations/flamethrower_front"
-
-                            rotate = 180 if attack_dir[0] == -1 else 0
-
-                            size = ((abs(attack_dir[0]) + 1) * WALL_SIZE, (abs(attack_dir[1]) + 1) * WALL_SIZE)
-
-                            flamethrower = Trap(images_path, pos_x, pos_y, 100, 1500, attack_dir, size, rotate)
+                            flamethrower = FlamethrowerTrap(pos_x, pos_y, attack_dir)
                             traps.add(flamethrower)
 
                             decorations_layout[row][col] = 1000 # mark as occupied
@@ -795,6 +840,27 @@ for i in range(len(room_map)):
                             break
                 if added_flamethrower:
                     break
+
+            added_arrowTrap = False
+            for row, col in coordinates:
+                if room_layout[row][col] in wall_ids and decorations_layout[row][col] == -1:
+                    for direction in ['left', 'right']:
+                        # 'down' , 'left', 'right'
+                        attack_dir = find_wall_with_free_n_spaces(room_layout, decorations_layout, direction, col, row, 10)
+
+                        pos_x = col + x_off
+                        pos_y = row + y_off
+
+                        if attack_dir[0] or attack_dir[1]:
+                            arrowTrap = ArrowTrap(pos_x, pos_y, attack_dir)
+                            traps.add(arrowTrap)
+
+                            decorations_layout[row][col] = 1000 # mark as occupied
+                            added_arrowTrap = True
+                            break
+                if added_arrowTrap:
+                    break
+
 
         for row in range(len(room_layout)):
             for col in range(len(room_layout[row])):
@@ -876,8 +942,11 @@ while running:
         player.move_player(dx, -dy)
 
     screen.fill("#25141A")
-    
-    game_objs_groups = [ground, walls, decorations, characters, traps, visuals]
+
+    arrows = []
+    [arrows.extend(trap.arrows) for trap in traps if hasattr(trap, 'arrows')]
+
+    game_objs_groups = [ground, walls, decorations, characters, traps, visuals, arrows]
     for group in game_objs_groups:
         for obj in group:
             screen.blit(obj.image, (obj.rect.x + camera.rect.x, obj.rect.y + camera.rect.y))
@@ -890,6 +959,16 @@ while running:
             print(trap.damage)
             player.health -= trap.damage
             trap.already_hit = True
+
+        if hasattr(trap, 'arrows'):
+            for arrow in trap.arrows:
+                if arrow.rect.colliderect(player.rect):
+                    player.health -= 1
+                    trap.already_hit = True
+                    trap.arrows.remove(arrow)
+                if any(arrow.rect.colliderect(wall) for wall in walls):
+                    trap.arrows.remove(arrow)
+
 
     for char in characters:
         # display health bar
