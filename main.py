@@ -40,12 +40,17 @@ class Animated():
         self.flipped_y = flipped_y
         self.rotation = rotation
 
-    def animate(self):
-        self.last_frame_time = pg.time.get_ticks()
-        self.cur_frame = (self.cur_frame + 1) % len(self.images)
+        self.adjust_image()
+
+    def adjust_image(self):
         self.image = pg.transform.scale(self.images[self.cur_frame], self.size)
         self.image = pg.transform.flip(self.image, self.flipped_x, self.flipped_y)
         self.image = pg.transform.rotate(self.image, self.rotation)
+
+    def animate(self):
+        self.last_frame_time = pg.time.get_ticks()
+        self.cur_frame = (self.cur_frame + 1) % len(self.images)
+        self.adjust_image()
 
     def animate_new_frame(self):
         if pg.time.get_ticks() - self.last_frame_time > self.frame_duration:
@@ -156,16 +161,16 @@ class Trap(pg.sprite.Sprite, Animated):
         Animated.__init__(self, images, size, frame_duration, False, False, rotate)
 
         self.attack_dir = attack_dir
-        self.attack_cooldown = cooldown
-        self.last_attack = pg.time.get_ticks()
+        self.attack_cooldown_time = cooldown
+        self.last_attack_time = pg.time.get_ticks()
         self.already_hit = False
         self.damage = 0
 
     def update(self, *args, **kwargs):
-        if pg.time.get_ticks() - self.last_attack > self.attack_cooldown:
+        if pg.time.get_ticks() - self.last_attack_time > self.attack_cooldown_time:
             self.animate_new_frame()
             if self.cur_frame == self.last_frame:
-                self.last_attack = pg.time.get_ticks()
+                self.last_attack_time = pg.time.get_ticks()
                 self.already_hit = False
 
 class FlamethrowerTrap(Trap):
@@ -210,26 +215,25 @@ class ArrowTrap(Trap):
 
         Trap.__init__(self, images_path, x, y, 50, 2000, attack_dir, size, rotate)
         self.rect = self.rect.move(14 * attack_dir[0], 0)
-
         self.arrows = []
 
     def update(self, *args, **kwargs):
         super().update(*args, **kwargs)
 
-        arrow_width = CHARACTER_SIZE * 0.7
-        arrow_heigt = CHARACTER_SIZE * 0.45
+        arrow_width = CHARACTER_SIZE * 0.65
+        arrow_height = CHARACTER_SIZE * 0.47
         if self.cur_frame == self.last_frame:
-            arrow_rect = pg.Rect(self.rect.x + CHARACTER_SIZE * self.attack_dir[0], self.rect.y + CHARACTER_SIZE * self.attack_dir[1], arrow_width, arrow_heigt)
+            arrow_rect = pg.Rect(self.rect.x + CHARACTER_SIZE * self.attack_dir[0], self.rect.y + CHARACTER_SIZE * self.attack_dir[1], arrow_width, arrow_height)
             new_arrow = pg.sprite.Sprite()
             new_arrow.rect = arrow_rect
 
             if attack_dir[0]:
                 image_path = "arrow_horizontal.png"
-                new_arrow.rect.y += (CHARACTER_SIZE - arrow_heigt) // 2
+                new_arrow.rect.y += (CHARACTER_SIZE - arrow_height) // 2
             else:
                 image_path = "arrow_vertical.png"
 
-            new_arrow.image = pg.transform.scale(pg.image.load(image_path), (arrow_width, arrow_heigt))
+            new_arrow.image = pg.transform.scale(pg.image.load(image_path), (arrow_width, arrow_height))
             new_arrow.image = pg.transform.rotate(new_arrow.image, 180 if attack_dir[0] == 1 else 0)
 
             self.arrows.append(new_arrow)
@@ -239,6 +243,28 @@ class ArrowTrap(Trap):
             arrow.rect.x += 8 * self.attack_dir[0]
             arrow.rect.y += 8 * self.attack_dir[1]
 
+
+class SpikeTrap(Trap):
+    def __init__(self, x, y):
+        size = (WALL_SIZE, WALL_SIZE)
+        images_path = "items_and_traps_animations/peaks"
+
+        Trap.__init__(self, images_path, x, y, 50, 1500, attack_dir, size)
+        self.spikes_up_time = 600
+        self.spikes_went_up_time = None
+        self.spikes_up_frame_num = 2
+
+    def update(self, *args, **kwargs):
+        self.damage = 1 if self.cur_frame == self.spikes_up_frame_num and not self.already_hit else 0
+
+        if self.cur_frame == self.spikes_up_frame_num and not self.spikes_went_up_time:
+            self.spikes_went_up_time = pg.time.get_ticks()
+
+        if self.spikes_went_up_time and pg.time.get_ticks() - self.spikes_went_up_time < self.spikes_up_time:
+            print(self.cur_frame)
+        else:
+            super().update(args, kwargs)
+            self.spikes_went_up_time = None
 
 
 class Enemy(Character):
@@ -869,6 +895,22 @@ for i in range(len(room_map)):
                 if added_arrowTrap:
                     break
 
+            added_spike_traps = 0
+            for row, col in coordinates:
+                if room_layout[row][col] != void_tile_id and room_layout[row][col] not in wall_ids and decorations_layout[row][col] == -1:
+                    pos_x = col + x_off
+                    pos_y = row + y_off
+
+                    spikeTrap = SpikeTrap(pos_x, pos_y)
+                    traps.add(spikeTrap)
+
+                    decorations_layout[row][col] = 1000  # mark as occupied
+                    added_spike_traps += 1
+
+                if added_spike_traps >= 2:
+                    break
+
+
 
         for row in range(len(room_layout)):
             for col in range(len(room_layout[row])):
@@ -954,7 +996,16 @@ while running:
     arrows = []
     [arrows.extend(trap.arrows) for trap in traps if hasattr(trap, 'arrows')]
 
-    game_objs_groups = [ground, walls, decorations, characters, traps, visuals, arrows]
+    higher_order_traps = []
+    spikes = []
+    for trap in traps:
+        if isinstance(trap, SpikeTrap):
+            spikes.append(trap)
+        else:
+            higher_order_traps.append(trap)
+
+
+    game_objs_groups = [ground, walls, decorations, spikes, characters, higher_order_traps, visuals, arrows]
     for group in game_objs_groups:
         for obj in group:
             screen.blit(obj.image, (obj.rect.x + camera.rect.x, obj.rect.y + camera.rect.y))
@@ -963,8 +1014,6 @@ while running:
 
     for trap in traps:
         if player.rect.colliderect(trap.rect) and trap.damage > 0:
-            print("hit")
-            print(trap.damage)
             player.health -= trap.damage
             trap.already_hit = True
 
