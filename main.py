@@ -156,7 +156,7 @@ class Character(pg.sprite.Sprite, Animated):
 class Trap(pg.sprite.Sprite, Animated):
     def __init__(self, images_path, x, y, frame_duration, cooldown, attack_dir, size, rotate=0):
         super().__init__()
-        self.rect = pg.Rect(x * WALL_SIZE, y * WALL_SIZE, size[0], size[1])
+        self.rect = pg.Rect(x, y, size[0], size[1])
         images = load_images_from_folder(images_path)
         Animated.__init__(self, images, size, frame_duration, False, False, rotate)
 
@@ -176,9 +176,9 @@ class Trap(pg.sprite.Sprite, Animated):
 class FlamethrowerTrap(Trap):
     def __init__(self, x, y, attack_dir):
         if attack_dir[0] == -1:
-            x -= 2
+            x -= 2 * WALL_SIZE
         elif attack_dir[0] == 1:
-            x += 1
+            x += WALL_SIZE
 
         if attack_dir[0]:
             images_path = "items_and_traps_animations/flamethrower_sideways"
@@ -187,9 +187,15 @@ class FlamethrowerTrap(Trap):
 
         rotate = 180 if attack_dir[0] == -1 else 0
 
-        size = ((abs(attack_dir[0]) + 1) * WALL_SIZE, (abs(attack_dir[1]) + 1) * WALL_SIZE)
+        width = (abs(attack_dir[0]) + 1) * WALL_SIZE * 0.8
+        height = (abs(attack_dir[1]) + 1) * WALL_SIZE * 0.8
 
-        super().__init__(images_path, x, y, 150, 1000, attack_dir, size, rotate)
+        size = (width, height)
+
+        x_off = (CHARACTER_SIZE - width * 0.1) // 4
+        y_off = (CHARACTER_SIZE - height * 0.1) // 45
+
+        super().__init__(images_path, x + x_off, y + y_off, 150, 1000, attack_dir, size, rotate)
 
     def update(self, *args, **kwargs):
         self.damage = 0 if (self.cur_frame in [0, self.last_frame] or self.already_hit) else 1
@@ -207,9 +213,7 @@ class ArrowTrap(Trap):
             images_path = "items_and_traps_animations/arrow_vertical"
 
         if attack_dir[0] == -1:
-            x -= 1
-        # elif attack_dir[0] == 1:
-        #     x += 1
+            x -= WALL_SIZE
 
         rotate = 180 if attack_dir[0] == 1 else 0
 
@@ -260,9 +264,7 @@ class SpikeTrap(Trap):
         if self.cur_frame == self.spikes_up_frame_num and not self.spikes_went_up_time:
             self.spikes_went_up_time = pg.time.get_ticks()
 
-        if self.spikes_went_up_time and pg.time.get_ticks() - self.spikes_went_up_time < self.spikes_up_time:
-            print(self.cur_frame)
-        else:
+        if not (self.spikes_went_up_time and pg.time.get_ticks() - self.spikes_went_up_time < self.spikes_up_time):
             super().update(args, kwargs)
             self.spikes_went_up_time = None
 
@@ -425,9 +427,33 @@ class Player(Character):
         self.current_dash_length = 0
         self.goal_dash_length = 100
 
+        self.normal_images = load_images_from_folder("player_character")
+        self.hurt_images = load_images_from_folder("player_character_hurt")
+        self.harm_animation_duration = 200
+        self.harm_animation_start_time = pg.time.get_ticks() - self.harm_animation_duration * 2
+        self.max_flash_count = 5
+        self.flash_count = self.max_flash_count
+
     def update(self, *args, **kwargs):
         self.animate_new_frame()
         self.update_dash()
+
+        if self.flash_count < self.max_flash_count:
+            diff = pg.time.get_ticks() - self.harm_animation_start_time
+
+            if self.flash_count % 2 == 0 and self.images != self.hurt_images and diff < self.harm_animation_duration:
+                self.images = self.hurt_images
+                self.animate()
+            elif diff > self.harm_animation_duration:
+                self.images = self.normal_images
+                self.animate()
+                self.flash_count += 1
+                self.harm_animation_start_time = pg.time.get_ticks()
+
+    def take_damage(self, damage):
+        self.health -= damage
+        self.harm_animation_start_time = pg.time.get_ticks()
+        self.flash_count = 0
 
     def update_dash(self):
         if self.dashing:
@@ -866,7 +892,7 @@ for i in range(len(room_map)):
                         pos_y = row + y_off
 
                         if attack_dir[0] or attack_dir[1]:
-                            flamethrower = FlamethrowerTrap(pos_x, pos_y, attack_dir)
+                            flamethrower = FlamethrowerTrap(pos_x * WALL_SIZE, pos_y * WALL_SIZE, attack_dir)
                             traps.add(flamethrower)
 
                             decorations_layout[row][col] = 1000 # mark as occupied
@@ -886,7 +912,7 @@ for i in range(len(room_map)):
                         pos_y = row + y_off
 
                         if attack_dir[0] or attack_dir[1]:
-                            arrowTrap = ArrowTrap(pos_x, pos_y, attack_dir)
+                            arrowTrap = ArrowTrap(pos_x * WALL_SIZE, pos_y * WALL_SIZE, attack_dir)
                             traps.add(arrowTrap)
 
                             decorations_layout[row][col] = 1000 # mark as occupied
@@ -901,7 +927,7 @@ for i in range(len(room_map)):
                     pos_x = col + x_off
                     pos_y = row + y_off
 
-                    spikeTrap = SpikeTrap(pos_x, pos_y)
+                    spikeTrap = SpikeTrap(pos_x * WALL_SIZE, pos_y * WALL_SIZE)
                     traps.add(spikeTrap)
 
                     decorations_layout[row][col] = 1000  # mark as occupied
@@ -1014,13 +1040,13 @@ while running:
 
     for trap in traps:
         if player.rect.colliderect(trap.rect) and trap.damage > 0:
-            player.health -= trap.damage
+            player.take_damage(trap.damage)
             trap.already_hit = True
 
         if hasattr(trap, 'arrows'):
             for arrow in trap.arrows:
                 if arrow.rect.colliderect(player.rect):
-                    player.health -= 1
+                    player.take_damage(1)
                     trap.already_hit = True
                     trap.arrows.remove(arrow)
                 if any(arrow.rect.colliderect(wall) for wall in walls):
@@ -1052,7 +1078,7 @@ while running:
             for testedChar in characters:
                 if attackRect.colliderect(testedChar) and testedChar != char:
                     if testedChar == player:
-                        player.health -= 1
+                        player.take_damage(1)
                     else:
                         testedChar.health -= dmg
                         if testedChar.health <= 0:
