@@ -64,6 +64,7 @@ class Visual(pg.sprite.Sprite, Animated):
         self.start_time = start_time
         self.duration = duration
         self.image = images[0]
+        self.adjust_image()
         self.rect = rect
 
     def update(self, *args, **kwargs):
@@ -74,7 +75,31 @@ class Visual(pg.sprite.Sprite, Animated):
             self.kill()
 
 
-class Map_Tile(pg.sprite.Sprite):
+class NotificationVisual(Visual):
+    def __init__(self, images, rect, float_in=False):
+        ratio = images[0].get_width() / images[0].get_height()
+
+        if images[0].get_width() > images[0].get_height():
+            rect.width = WALL_SIZE
+            rect.height = WALL_SIZE * ratio
+        else:
+            rect.height = WALL_SIZE
+            rect.width = WALL_SIZE * ratio
+
+        super().__init__(images, rect, pg.time.get_ticks(), len(images) * 100)
+
+        self.float_in = float_in
+        self.goal_position_y = rect.y - 50
+
+    def update(self, *args, **kwargs):
+        if self.float_in and self.rect.y - self.goal_position_y > 5:
+            self.rect.y -= 5
+
+        super().update(self, args, kwargs)
+
+
+
+class MapTile(pg.sprite.Sprite):
     def __init__(self, image, x, y):
         super().__init__()
         self.image = pg.transform.scale(image, (WALL_SIZE, WALL_SIZE))
@@ -82,11 +107,11 @@ class Map_Tile(pg.sprite.Sprite):
         self.row = y
         self.rect = self.image.get_rect(topleft=(x * WALL_SIZE, y * WALL_SIZE))
 
-class Animated_Map_Tile(Map_Tile, Animated):
+class AnimatedMapTile(MapTile, Animated):
     def __init__(self, images_path, x, y, frame_duration, flip_x=False, flip_y=False, rotate=0, size=None):
         images = load_images_from_folder(images_path)
 
-        Map_Tile.__init__(self, images[0], x, y)
+        MapTile.__init__(self, images[0], x, y)
         if size:
             self.rect.size = size
         Animated.__init__(self, images, self.rect.size, frame_duration, flip_x, flip_y, rotate)
@@ -100,10 +125,13 @@ class Character(pg.sprite.Sprite, Animated):
         self.health = 0
         self.full_health = 0
         images = load_images_from_folder(images_path)
-        Animated.__init__(self, images, (CHARACTER_SIZE, CHARACTER_SIZE), 400)
+
+        size_multiplier = 0.96
+
+        Animated.__init__(self, images, (CHARACTER_SIZE * size_multiplier, CHARACTER_SIZE * size_multiplier), 400)
         self.last_attack_time = pg.time.get_ticks()
         self.attack_cooldown = 0
-        self.rect = self.image.get_rect(topleft=(x, y))
+        self.rect = self.image.get_rect(topleft=(x + (CHARACTER_SIZE * size_multiplier) // 2, y + (CHARACTER_SIZE * size_multiplier) // 2))
         self.attacks = []
         self.speed = 1
 
@@ -153,6 +181,42 @@ class Character(pg.sprite.Sprite, Animated):
 
         self.attacks.append(attack)
 
+class Item(pg.sprite.Sprite, Animated):
+    def __init__(self, images_path, x, y, frame_duration, size, rotate=0):
+        super().__init__()
+        self.rect = pg.Rect(x, y, size[0], size[1])
+        images = load_images_from_folder(images_path)
+        Animated.__init__(self, images, size, frame_duration, False, False, rotate)
+
+    def update(self, *args, **kwargs):
+        self.animate_new_frame()
+
+
+class Chest(Item):
+    def __init__(self, x, y, coins, health_potions):
+        width = WALL_SIZE
+        height = WALL_SIZE
+
+        Item.__init__(self, "items_and_traps_animations/chest/normal", x + width * 0.1, y + height * 0.1, 300, (width * 0.8, height * 0.8))
+
+        self.open_chest_images = load_images_from_folder("items_and_traps_animations/chest/open")
+        self.coins = coins
+        self.health_potions = health_potions
+        self.opened = False
+
+    def update(self, *args, **kwargs):
+        if self.opened and self.cur_frame == self.last_frame:
+            # add visual that shows coins added over the chest
+            print("visual")
+        else:
+            super().update(args, kwargs)
+
+    def open(self):
+        if not self.opened:
+            self.cur_frame = 0
+            self.images = self.open_chest_images
+            self.opened = True
+
 class Trap(pg.sprite.Sprite, Animated):
     def __init__(self, images_path, x, y, frame_duration, cooldown, attack_dir, size, rotate=0):
         super().__init__()
@@ -187,18 +251,21 @@ class FlamethrowerTrap(Trap):
 
         rotate = 180 if attack_dir[0] == -1 else 0
 
-        width = (abs(attack_dir[0]) + 1) * WALL_SIZE * 0.8
-        height = (abs(attack_dir[1]) + 1) * WALL_SIZE * 0.8
+        width = (abs(attack_dir[0]) + 1) * WALL_SIZE
+        height = (abs(attack_dir[1]) + 1) * WALL_SIZE
 
-        size = (width, height)
+        size = [width, height]
 
-        x_off = (CHARACTER_SIZE - width * 0.1) // 4
-        y_off = (CHARACTER_SIZE - height * 0.1) // 45
+        x_off = width * 0.1
+        y_off = height * 0.1
+
+        size[0] *= 0.8
+        size[1] *= 0.8
 
         super().__init__(images_path, x + x_off, y + y_off, 150, 1000, attack_dir, size, rotate)
 
     def update(self, *args, **kwargs):
-        self.damage = 0 if (self.cur_frame in [0, self.last_frame] or self.already_hit) else 1
+        self.damage = 0 if (self.cur_frame in [0, self.last_frame, self.last_frame-1] or self.already_hit) else 1
 
         super().update(*args, **kwargs)
 
@@ -250,10 +317,10 @@ class ArrowTrap(Trap):
 
 class SpikeTrap(Trap):
     def __init__(self, x, y):
-        size = (WALL_SIZE, WALL_SIZE)
+        size = (WALL_SIZE * 0.8, WALL_SIZE * 0.8)
         images_path = "items_and_traps_animations/peaks"
 
-        Trap.__init__(self, images_path, x, y, 50, 1500, attack_dir, size)
+        Trap.__init__(self, images_path, x + WALL_SIZE * 0.1, y + WALL_SIZE * 0.1, 50, 1500, attack_dir, size)
         self.spikes_up_time = 600
         self.spikes_went_up_time = None
         self.spikes_up_frame_num = 2
@@ -335,8 +402,8 @@ class Enemy(Character):
                 self.attack_dir = None
                 self.about_to_attack_time = 0
         elif self.in_line_of_sight(player_rect, obstacles):
-            # if self.last_known_player_position == None:
-                #visuals.add(Visual(self.dash_animation_images, self.rect.copy(), pg.time.get_ticks(), 200, not(self.flipped_x), rotation=dash_rotation))
+            if self.last_known_player_position == None:
+                visuals.add(NotificationVisual(load_images_from_folder("effects/spotted"), self.rect.move(0, -50)))
 
             self.move_in_direction((player_rect.x, player_rect.y))
             self.last_known_player_position = (player_rect.x, player_rect.y)
@@ -354,13 +421,13 @@ class Enemy(Character):
         elif self.last_known_player_position:
             self.move_in_direction(self.last_known_player_position)
         elif self.roam_position:
-            random_point = pg.Rect(self.rect)
-            random_point.x = self.roam_position[0]
-            random_point.y = self.roam_position[1]
-            random_point.width = 1
-            random_point.height = 1
+            roam_point = pg.Rect(self.rect)
+            roam_point.x = self.roam_position[0]
+            roam_point.y = self.roam_position[1]
+            roam_point.width = 1
+            roam_point.height = 1
 
-            self.in_line_of_sight(random_point, obstacles, True)
+            self.in_line_of_sight(roam_point, obstacles, True)
             self.move_in_direction(self.roam_position)
         else:
             wait_dt = pg.time.get_ticks() - self.last_roam_time
@@ -375,8 +442,8 @@ class Enemy(Character):
 
             # chose random point, check if in line of sight
             random_point = pg.Rect(self.rect)
-            random_point.x += random.randint(150, 350) * [-1, 1][random.randint(0, 1)]
-            random_point.y += random.randint(150, 350) * [-1, 1][random.randint(0, 1)]
+            random_point.x += random.randint(50, 150) * [-1, 1][random.randint(0, 1)]
+            random_point.y += random.randint(50, 150) * [-1, 1][random.randint(0, 1)]
             random_point.width = 1
             random_point.height = 1
 
@@ -414,8 +481,8 @@ class Player(Character):
         self.dest_x = self.rect.x
         self.dest_y = self.rect.y
         self.coins = 0
-        self.health = 3
-        self.full_health = 6
+        self.health = 10
+        self.full_health = 12
         self.speed = 5
         self.dashing = False
         self.last_dash_time = pg.time.get_ticks()
@@ -768,6 +835,7 @@ for y, row in enumerate(discovered_mini_map):
 
 characters = pg.sprite.Group()
 traps = pg.sprite.Group()
+items = pg.sprite.Group()
 
 room_tile_maps = []
 for i in range(1, 7):
@@ -933,10 +1001,25 @@ for i in range(len(room_map)):
                     decorations_layout[row][col] = 1000  # mark as occupied
                     added_spike_traps += 1
 
-                if added_spike_traps >= 2:
+                if added_spike_traps >= 1:
                     break
 
+            #generate a chest
+            added_chest = False
+            for row, col in coordinates:
+                if room_layout[row][col] != void_tile_id and room_layout[row][col] not in wall_ids and \
+                        decorations_layout[row][col] == -1:
+                    pos_x = col + x_off
+                    pos_y = row + y_off
 
+                    chest = Chest(pos_x * WALL_SIZE, pos_y * WALL_SIZE, 10, 0)
+                    items.add(chest)
+
+                    decorations_layout[row][col] = 1000  # mark as occupied
+                    added_chest = True
+
+                if added_chest:
+                    break
 
         for row in range(len(room_layout)):
             for col in range(len(room_layout[row])):
@@ -945,9 +1028,9 @@ for i in range(len(room_map)):
 
                 id = room_layout[row][col]
                 if id in wall_ids:
-                    walls.add(Map_Tile(tiles_images[id], pos_x, pos_y))
+                    walls.add(MapTile(tiles_images[id], pos_x, pos_y))
                 else:
-                    ground.add(Map_Tile(tiles_images[id], pos_x, pos_y))
+                    ground.add(MapTile(tiles_images[id], pos_x, pos_y))
 
                 if decorations_layout != None:
                     id = decorations_layout[row][col]
@@ -963,9 +1046,9 @@ for i in range(len(room_map)):
 
                         if id in animations_images_data:
                             path, time = animations_images_data[id]
-                            obj = Animated_Map_Tile(path, pos_x, pos_y, time)
+                            obj = AnimatedMapTile(path, pos_x, pos_y, time)
                         else:
-                            obj = Map_Tile(tiles_images[id], pos_x, pos_y)
+                            obj = MapTile(tiles_images[id], pos_x, pos_y)
 
                         decorations.add(obj)
 
@@ -1031,7 +1114,7 @@ while running:
             higher_order_traps.append(trap)
 
 
-    game_objs_groups = [ground, walls, decorations, spikes, characters, higher_order_traps, visuals, arrows]
+    game_objs_groups = [ground, walls, decorations, spikes, items, characters, higher_order_traps, visuals, arrows]
     for group in game_objs_groups:
         for obj in group:
             screen.blit(obj.image, (obj.rect.x + camera.rect.x, obj.rect.y + camera.rect.y))
@@ -1040,6 +1123,9 @@ while running:
 
     for trap in traps:
         if player.rect.colliderect(trap.rect) and trap.damage > 0:
+            if isinstance(trap, SpikeTrap) and player.rect.bottom - CHARACTER_SIZE >= trap.rect.top:
+                continue
+
             player.take_damage(trap.damage)
             trap.already_hit = True
 
@@ -1052,10 +1138,12 @@ while running:
                 if any(arrow.rect.colliderect(wall) for wall in walls):
                     trap.arrows.remove(arrow)
 
+    chests = []
+    [chests.extend(items) for item in items if isinstance(item, Chest)]
 
     for char in characters:
         # display health bar
-        if char != player:
+        if char != player and char.health < char.full_health:
             health_bar_length = 60
             health_bar_height = 10
             current_health_length = (char.health / char.full_health) * health_bar_length
@@ -1074,6 +1162,11 @@ while running:
             attackRect = effect.get_rect()
             attackRect.x = dest[0]
             attackRect.y = dest[1]
+
+            if char == player:
+                for chest in chests:
+                    if chest.rect.colliderect(attackRect):
+                        chest.open()
 
             for testedChar in characters:
                 if attackRect.colliderect(testedChar) and testedChar != char:
@@ -1110,6 +1203,7 @@ while running:
     visuals.update()
     decorations.update()
     traps.update()
+    items.update()
     characters.update(player.rect, walls)
 
     pg.display.flip()
