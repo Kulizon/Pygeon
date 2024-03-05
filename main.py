@@ -57,9 +57,9 @@ class Animated():
             self.animate()
 
 class Visual(pg.sprite.Sprite, Animated):
-    def __init__(self, images, rect, start_time, duration, flipped_x=False, flipped_y=False, rotation=0):
+    def __init__(self, images, rect, start_time, duration, flipped_x=False, flipped_y=False, rotation=0, iterations=1):
         pg.sprite.Sprite.__init__(self)
-        Animated.__init__(self, images, (rect.width, rect.height), int(duration/len(images)), flipped_x, flipped_y, rotation)
+        Animated.__init__(self, images, (rect.width, rect.height), int(duration/(len(images)*iterations)), flipped_x, flipped_y, rotation)
 
         self.start_time = start_time
         self.duration = duration
@@ -70,13 +70,13 @@ class Visual(pg.sprite.Sprite, Animated):
     def update(self, *args, **kwargs):
         self.animate_new_frame()
 
-        if pg.time.get_ticks() - self.start_time >= self.duration:
+        if pg.time.get_ticks() - self.start_time > self.duration:
             # remove yourself from Group
             self.kill()
 
 
 class NotificationVisual(Visual):
-    def __init__(self, images, rect, float_in=False):
+    def __init__(self, images, rect, float_in=False, duration=-1, iterations=1):
         ratio = images[0].get_width() / images[0].get_height()
 
         if images[0].get_width() > images[0].get_height():
@@ -86,14 +86,14 @@ class NotificationVisual(Visual):
             rect.height = WALL_SIZE
             rect.width = WALL_SIZE * ratio
 
-        super().__init__(images, rect, pg.time.get_ticks(), len(images) * 100)
+        super().__init__(images, rect, pg.time.get_ticks(), duration if duration != -1 else len(images) * 100, iterations=iterations)
 
         self.float_in = float_in
-        self.goal_position_y = rect.y - 50
+        self.goal_position_y = rect.y - 20
 
     def update(self, *args, **kwargs):
         if self.float_in and self.rect.y - self.goal_position_y > 5:
-            self.rect.y -= 5
+            self.rect.y -= 3
 
         super().update(self, args, kwargs)
 
@@ -184,31 +184,35 @@ class Character(pg.sprite.Sprite, Animated):
 class Item(pg.sprite.Sprite, Animated):
     def __init__(self, images_path, x, y, frame_duration, size, rotate=0):
         super().__init__()
-        self.rect = pg.Rect(x, y, size[0], size[1])
+        self.rect = pg.Rect(x + (WALL_SIZE - size[0])//2, y + (WALL_SIZE - size[1])//2, size[0], size[1])
         images = load_images_from_folder(images_path)
         Animated.__init__(self, images, size, frame_duration, False, False, rotate)
 
     def update(self, *args, **kwargs):
         self.animate_new_frame()
 
+class Key(Item):
+    def __init__(self, x, y):
+        super().__init__("items_and_traps_animations/keys/silver", pos_x * WALL_SIZE, pos_y * WALL_SIZE, 200,
+             [WALL_SIZE * 0.8, WALL_SIZE * 0.8])
+
 
 class Chest(Item):
     def __init__(self, x, y, coins, health_potions):
-        width = WALL_SIZE
-        height = WALL_SIZE
-
-        Item.__init__(self, "items_and_traps_animations/chest/normal", x + width * 0.1, y + height * 0.1, 300, (width * 0.8, height * 0.8))
+        Item.__init__(self, "items_and_traps_animations/chest/normal", x, y, 280, (WALL_SIZE * 0.8, WALL_SIZE * 0.8))
 
         self.open_chest_images = load_images_from_folder("items_and_traps_animations/chest/open")
         self.coins = coins
         self.health_potions = health_potions
         self.opened = False
+        self.added_visual = False
 
     def update(self, *args, **kwargs):
-        if self.opened and self.cur_frame == self.last_frame:
-            # add visual that shows coins added over the chest
-            print("visual")
-        else:
+        if self.opened and self.cur_frame == self.last_frame and not self.added_visual:
+            visuals.add(NotificationVisual(load_images_from_folder("items_and_traps_animations/coin"), self.rect.move(-WALL_SIZE * 0.1, -60), True, 1600, iterations=3))
+            player.coins += random.randint(10, 25)
+            self.added_visual = True
+        elif not self.added_visual:
             super().update(args, kwargs)
 
     def open(self):
@@ -284,7 +288,7 @@ class ArrowTrap(Trap):
 
         rotate = 180 if attack_dir[0] == 1 else 0
 
-        Trap.__init__(self, images_path, x, y, 50, 2000, attack_dir, size, rotate)
+        Trap.__init__(self, images_path, x, y, 40, 2000, attack_dir, size, rotate)
         self.rect = self.rect.move(14 * attack_dir[0], 0)
         self.arrows = []
 
@@ -350,6 +354,9 @@ class Enemy(Character):
         self.attack_cooldown = 1500
         self.about_to_attack_time = 0
 
+        self.spotted_time = None
+        self.spotted_wait_duration = 500
+
     def change_position(self, move_x, move_y):
         if not self.is_colliding_with_walls(move_x, move_y):
             self.rect.x += move_x
@@ -393,7 +400,6 @@ class Enemy(Character):
             self.last_turn_around_animation_time = pg.time.get_ticks()
             self.roam_wait_time = random.randint(1500, 2500)
 
-
     def update(self, player_rect, obstacles, *args, **kwargs):
 
         if self.about_to_attack_time != 0:
@@ -402,8 +408,15 @@ class Enemy(Character):
                 self.attack_dir = None
                 self.about_to_attack_time = 0
         elif self.in_line_of_sight(player_rect, obstacles):
-            if self.last_known_player_position == None:
-                visuals.add(NotificationVisual(load_images_from_folder("effects/spotted"), self.rect.move(0, -50)))
+            if self.last_known_player_position is None and self.spotted_time is None:
+                visuals.add(NotificationVisual(load_images_from_folder("effects/spotted"), self.rect.move(0, -60)))
+                self.flip_model_on_move(player_rect.x - self.rect.x)
+                self.spotted_time = pg.time.get_ticks()
+
+            if self.spotted_time and pg.time.get_ticks() - self.spotted_time < self.spotted_wait_duration:
+                return
+
+            self.spotted_time = None
 
             self.move_in_direction((player_rect.x, player_rect.y))
             self.last_known_player_position = (player_rect.x, player_rect.y)
@@ -500,6 +513,8 @@ class Player(Character):
         self.harm_animation_start_time = pg.time.get_ticks() - self.harm_animation_duration * 2
         self.max_flash_count = 5
         self.flash_count = self.max_flash_count
+
+        self.number_of_keys = 0
 
     def update(self, *args, **kwargs):
         self.animate_new_frame()
@@ -612,6 +627,10 @@ class Player(Character):
         dash_rotation = 90 if dy < 0 else -90 if dy > 0 else 0
         visuals.add(Visual(self.dash_animation_images, self.rect.copy(), pg.time.get_ticks(), 200, not(self.flipped_x), rotation=dash_rotation))
 
+    def add_item(self, item):
+        if isinstance(item, Key):
+            self.number_of_keys += 1
+
 
 class Camera:
     def __init__(self, width, height):
@@ -709,6 +728,8 @@ def connect_rooms(rooms):
 heart_image = pg.transform.scale(pg.image.load('heart.png'), (30, 28))
 coin_images = load_tileset("coin.png", 13, 13)
 coin_animated = Animated(coin_images, (30, 30), 200)
+key_images = load_images_from_folder("items_and_traps_animations/keys/silver_resized")
+key_animated = Animated(key_images, (30, 22), 200)
 
 
 def display_health(health):
@@ -792,11 +813,20 @@ def display_mini_map(map, current_cell):
             color = (255, 0, 0) if cell_value == current_cell else (0, 255, 0) if cell_value != 0 else (0, 0, 0)
             pg.draw.rect(screen, color, (display_x, display_y, cell_width, cell_height))
 
+def display_keys(number_of_keys):
+    screen.blit(key_animated.image, (10, 92))
+
+    font = pg.font.Font("retro_font.ttf", 22)
+    text = font.render(str(number_of_keys), True, WHITE)
+    screen.blit(text, (50, 90))
+
+    key_animated.animate_new_frame()
 
 
-def display_ui(coins, health, mini_map, current_cell):
+def display_ui(coins, health, mini_map, current_cell, number_of_keys):
     display_health(health)
     display_coins(coins)
+    display_keys(number_of_keys)
     display_mini_map(mini_map, current_cell)
     #display_full_map(mini_map, current_cell)
 
@@ -876,6 +906,31 @@ def find_wall_with_free_n_spaces(layout, decorations_layout, direction, x, y, n)
 
 empty_decorations_layout = [[-1 for _ in range(ROOM_HEIGHT)] for _ in range(ROOM_WIDTH)]
 
+
+def find_furthest_room(room_map):
+    rows = len(room_map)
+    cols = len(room_map[0])
+
+    center_row = rows // 2
+    center_col = cols // 2
+
+    max_distance = -1
+    furthest_room = None
+
+
+
+    for i in range(rows):
+        for j in range(cols):
+            distance = abs(i - center_row) + abs(j - center_col)
+            if distance > max_distance and room_map[i][j] != 0:
+                max_distance = distance
+                furthest_room = room_map[i][j]
+
+    return furthest_room
+
+
+furthest_room_id = find_furthest_room(room_map)
+
 for i in range(len(room_map)):
     for j in range(len(room_map[0])):
         room_id = room_map[i][j]
@@ -943,14 +998,33 @@ for i in range(len(room_map)):
             room_layout[middle_tile+1][1] = 10
             room_layout[middle_tile+2][1] = 10
 
+        # generate key if is the furthest room
+
+        print(furthest_room_id)
+
+        if room_id == furthest_room_id:
+            coordinates = [(row, col) for row in range(len(room_layout)) for col in range(len(room_layout[row]))]
+
+            for row, col in coordinates:
+                if room_layout[row][col] != void_tile_id and room_layout[row][col] not in wall_ids and \
+                        decorations_layout[row][col] == -1:
+                    pos_x = col + x_off
+                    pos_y = row + y_off
+
+                    key = Key(pos_x * WALL_SIZE, pos_y * WALL_SIZE)
+                    items.add(key)
+
+                    decorations_layout[row][col] = 1000  # mark as occupied
+                    break
+
         # generate traps and items
 
         # search for a wall that has two free spaces in the way that flamethrower will be facing
         if room_id != 1:
-            added_flamethrower = False
             coordinates = [(row, col) for row in range(len(room_layout)) for col in range(len(room_layout[row]))]
             random.shuffle(coordinates)
 
+            added_flamethrower = False
             for row, col in coordinates:
                 if room_layout[row][col] in wall_ids and decorations_layout[row][col] == -1:
                     for direction in ['down', 'left', 'right']:
@@ -1139,7 +1213,13 @@ while running:
                     trap.arrows.remove(arrow)
 
     chests = []
-    [chests.extend(items) for item in items if isinstance(item, Chest)]
+    for item in items:
+        if isinstance(item, Chest):
+            chests.append(item)
+        else:
+            if item.rect.colliderect(player.rect):
+                player.add_item(item)
+                item.remove(items)
 
     for char in characters:
         # display health bar
@@ -1198,7 +1278,7 @@ while running:
                     discovered_mini_map[y][x] = new_cell
 
     current_cell = new_cell
-    display_ui(player.coins, player.health, discovered_mini_map, current_cell)
+    display_ui(player.coins, player.health, discovered_mini_map, current_cell, player.number_of_keys)
 
     visuals.update()
     decorations.update()
