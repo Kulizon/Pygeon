@@ -26,8 +26,7 @@ def compare_rect(rect1, rect2):
 
 
 class Animated():
-    def __init__(self, images, size, frame_duration, flipped_x=False, flipped_y=False, rotation=0):
-        super().__init__()
+    def __init__(self, images, size, frame_duration, flipped_x=False, flipped_y=False, rotate=0):
         self.images = images
         self.image = pg.transform.scale(images[0], size)
         self.frame_duration = frame_duration
@@ -38,14 +37,14 @@ class Animated():
 
         self.flipped_x = flipped_x
         self.flipped_y = flipped_y
-        self.rotation = rotation
+        self.rotate = rotate
 
         self.adjust_image()
 
     def adjust_image(self):
         self.image = pg.transform.scale(self.images[self.cur_frame], self.size)
         self.image = pg.transform.flip(self.image, self.flipped_x, self.flipped_y)
-        self.image = pg.transform.rotate(self.image, self.rotation)
+        self.image = pg.transform.rotate(self.image, self.rotate)
 
     def animate(self):
         self.last_frame_time = pg.time.get_ticks()
@@ -57,9 +56,9 @@ class Animated():
             self.animate()
 
 class Visual(pg.sprite.Sprite, Animated):
-    def __init__(self, images, rect, start_time, duration, flipped_x=False, flipped_y=False, rotation=0, iterations=1):
+    def __init__(self, images, rect, start_time, duration, flipped_x=False, flipped_y=False, rotate=0, iterations=1):
         pg.sprite.Sprite.__init__(self)
-        Animated.__init__(self, images, (rect.width, rect.height), int(duration/(len(images)*iterations)), flipped_x, flipped_y, rotation)
+        Animated.__init__(self, images, (rect.width, rect.height), int(duration/(len(images)*iterations)), flipped_x, flipped_y, rotate)
 
         self.start_time = start_time
         self.duration = duration
@@ -181,6 +180,7 @@ class Character(pg.sprite.Sprite, Animated):
 
         self.attacks.append(attack)
 
+
 class Item(pg.sprite.Sprite, Animated):
     def __init__(self, images_path, x, y, frame_duration, size, rotate=0):
         super().__init__()
@@ -193,7 +193,7 @@ class Item(pg.sprite.Sprite, Animated):
 
 class Key(Item):
     def __init__(self, x, y):
-        super().__init__("items_and_traps_animations/keys/silver", pos_x * WALL_SIZE, pos_y * WALL_SIZE, 200,
+        super().__init__("items_and_traps_animations/keys/silver", x, y, 200,
              [WALL_SIZE * 0.8, WALL_SIZE * 0.8])
 
 
@@ -223,7 +223,7 @@ class Chest(Item):
 
 class Trap(pg.sprite.Sprite, Animated):
     def __init__(self, images_path, x, y, frame_duration, cooldown, attack_dir, size, rotate=0):
-        super().__init__()
+        pg.sprite.Sprite.__init__(self)
         self.rect = pg.Rect(x, y, size[0], size[1])
         images = load_images_from_folder(images_path)
         Animated.__init__(self, images, size, frame_duration, False, False, rotate)
@@ -302,14 +302,14 @@ class ArrowTrap(Trap):
             new_arrow = pg.sprite.Sprite()
             new_arrow.rect = arrow_rect
 
-            if attack_dir[0]:
+            if self.attack_dir[0]:
                 image_path = "arrow_horizontal.png"
                 new_arrow.rect.y += (CHARACTER_SIZE - arrow_height) // 2
             else:
                 image_path = "arrow_vertical.png"
 
             new_arrow.image = pg.transform.scale(pg.image.load(image_path), (arrow_width, arrow_height))
-            new_arrow.image = pg.transform.rotate(new_arrow.image, 180 if attack_dir[0] == 1 else 0)
+            new_arrow.image = pg.transform.rotate(new_arrow.image, 180 if self.attack_dir[0] == 1 else 0)
 
             self.arrows.append(new_arrow)
             self.cur_frame = 0
@@ -488,6 +488,87 @@ class Enemy(Character):
         return True
 
 
+class ActionObject:
+    def __init__(self, rect, action_to_perform, max_distance = CHARACTER_SIZE):
+        self.rect = rect
+        self.action_to_perform = action_to_perform
+        self.max_distance = max_distance
+
+
+    def is_close(self, player):
+        dx = self.rect.centerx - player.rect.centerx
+        dy = self.rect.centery - player.rect.centery
+
+        distance = math.sqrt(dx**2 + dy**2)
+
+        return distance < self.max_distance
+
+    def perform_action(self, player):
+        if self.is_close(player):
+            self.action_to_perform(player)
+            return True
+        return False
+
+
+class PlayerUpgradeItem(Item):
+    def __init__(self, images_path, x, y, stat, modifier):
+        super().__init__(images_path, x, y, 300, (WALL_SIZE * 0.8, WALL_SIZE * 0.8))
+        self.stat = stat
+        self.modifier = modifier
+
+class MerchantItem(Item, ActionObject):
+    def __init__(self, item, price):
+        self.item_to_sell = item
+        Item.__init__(self, "items_and_traps_animations/mini_chest", item.rect.x, item.rect.y, item.frame_duration, item.rect.size)
+        ActionObject.__init__(self, self.rect, self.sell, CHARACTER_SIZE)
+
+        self.images = item.images
+        self.price = price
+        self.bought = False
+
+    def sell(self, player):
+        if player.coins >= self.price and self.price >= 0:
+            player.coins -= self.price
+
+            self.bought = True
+            player.add_item(self.item_to_sell)
+
+
+
+class Merchant(Character):
+    def __init__(self, start_x, start_y):
+        Character.__init__(self, start_x, start_y, "merchant")
+
+        it1 = MerchantItem(Key(self.rect.x - 2 * WALL_SIZE, start_y + self.rect.height + 20), 5)
+        it2 = MerchantItem(Key(self.rect.x, start_y + self.rect.height + 20), 0)
+        it3 = MerchantItem(PlayerUpgradeItem("items_and_traps_animations/flag", self.rect.x + 2 * WALL_SIZE, start_y + self.rect.height + 20, "movement_speed", 2), 0)
+
+
+
+        self.items_to_sell = [it1, it2, it3]
+
+    def render_items(self, camera, player):
+        for item in self.items_to_sell:
+
+            screen.blit(item.image, (item.rect.x + camera.rect.x, item.rect.y + camera.rect.y))
+
+            color = (255, 0, 0) if item.is_close(player) else WHITE
+
+            text = font.render(str(item.price) + "$", True, color)
+            screen.blit(text, (item.rect.x + camera.rect.x, item.rect.y + camera.rect.y + item.image.get_height() + 10))
+
+    def update(self, *args, **kwargs):
+        self.animate_new_frame()
+
+        for i, item in enumerate(self.items_to_sell):
+            item.update()
+
+            if item.bought:
+                new_item = MerchantItem(Item("items_and_traps_animations/mini_chest", 0, 0, 500, [item.rect.width, item.rect.height]), -1)
+                new_item.rect = item.rect
+                self.items_to_sell[i] = new_item
+
+
 class Player(Character):
     def __init__(self, start_x, start_y):
         super().__init__(start_x, start_y, "player_character")
@@ -594,8 +675,8 @@ class Player(Character):
             new_x_rect = pg.Rect(new_x, self.rect.y, CHARACTER_SIZE, CHARACTER_SIZE)
             new_y_rect = pg.Rect(self.rect.x, new_y, CHARACTER_SIZE, CHARACTER_SIZE)
 
-            is_collision_along_x = any(obj.rect.colliderect(new_x_rect) and obj != self for group in objs for obj in group)
-            is_collision_along_y = any(obj.rect.colliderect(new_y_rect) and obj != self for group in objs for obj in group)
+            is_collision_along_x = any(obj.rect.colliderect(new_x_rect) and obj != self for obj in walls)
+            is_collision_along_y = any(obj.rect.colliderect(new_y_rect) and obj != self for obj in walls)
 
             if not is_collision_along_x:
                 self.rect.x = new_x
@@ -625,11 +706,16 @@ class Player(Character):
         self.flip_model_on_move(dx)
 
         dash_rotation = 90 if dy < 0 else -90 if dy > 0 else 0
-        visuals.add(Visual(self.dash_animation_images, self.rect.copy(), pg.time.get_ticks(), 200, not(self.flipped_x), rotation=dash_rotation))
+        visuals.add(Visual(self.dash_animation_images, self.rect.copy(), pg.time.get_ticks(), 200, not(self.flipped_x), rotate=dash_rotation))
 
     def add_item(self, item):
+
         if isinstance(item, Key):
             self.number_of_keys += 1
+
+        if isinstance(item, PlayerUpgradeItem):
+            if item.stat == "movement_speed":
+                self.speed *= item.modifier
 
 
 class Camera:
@@ -730,6 +816,7 @@ coin_images = load_tileset("coin.png", 13, 13)
 coin_animated = Animated(coin_images, (30, 30), 200)
 key_images = load_images_from_folder("items_and_traps_animations/keys/silver_resized")
 key_animated = Animated(key_images, (30, 22), 200)
+font = pg.font.Font("retro_font.ttf", 22)
 
 
 def display_health(health):
@@ -739,7 +826,6 @@ def display_health(health):
 
 def display_coins(coins):
     screen.blit(coin_animated.image, (10, 50))
-    font = pg.font.Font("retro_font.ttf", 22)
     text = font.render("0" * (3 - int(math.log10(coins+1))) + str(coins), True, WHITE)
     screen.blit(text, (50, 52))
     coin_animated.animate_new_frame()
@@ -816,17 +902,34 @@ def display_mini_map(map, current_cell):
 def display_keys(number_of_keys):
     screen.blit(key_animated.image, (10, 92))
 
-    font = pg.font.Font("retro_font.ttf", 22)
     text = font.render(str(number_of_keys), True, WHITE)
     screen.blit(text, (50, 90))
 
     key_animated.animate_new_frame()
 
+def display_timer(timer_seconds):
+    mini_map_size = 140
+    screen_gap = 15
 
-def display_ui(coins, health, mini_map, current_cell, number_of_keys):
+    seconds = timer_seconds % 60
+    minutes = timer_seconds // 60
+
+    text_color = (255, 0, 0) if minutes == 1 else WHITE
+
+    text = str(minutes) + ":"
+    if seconds < 10:
+        text += "0"
+    text += str(seconds)
+
+    text = font.render(text, True, text_color)
+    screen.blit(text, (WIDTH - text.get_width() - screen_gap, mini_map_size + screen_gap + text.get_height()))
+
+
+def display_ui(coins, health, mini_map, current_cell, number_of_keys, timer_seconds):
     display_health(health)
     display_coins(coins)
     display_keys(number_of_keys)
+    display_timer(timer_seconds)
     display_mini_map(mini_map, current_cell)
     #display_full_map(mini_map, current_cell)
 
@@ -854,7 +957,7 @@ def trim_matrix(matrix):
     return trimmed_matrix
 
 
-rooms = [i+1 for i in range(2)]
+rooms = [i+1 for i in range(10)]
 room_map = connect_rooms(rooms)
 mini_map = trim_matrix(room_map)
 discovered_mini_map = deepcopy(mini_map)
@@ -1000,8 +1103,6 @@ for i in range(len(room_map)):
 
         # generate key if is the furthest room
 
-        print(furthest_room_id)
-
         if room_id == furthest_room_id:
             coordinates = [(row, col) for row in range(len(room_layout)) for col in range(len(room_layout[row]))]
 
@@ -1129,18 +1230,31 @@ for i in range(len(room_map)):
 map_width_px = len(room_map[0]) * WALL_SIZE * ROOM_WIDTH
 map_height_px = len(room_map) * WALL_SIZE * ROOM_HEIGHT
 
-player = Player(map_width_px//2, map_height_px//2)
+player = Player(map_width_px//2 - CHARACTER_SIZE, map_height_px//2 - CHARACTER_SIZE)
+merchant = Merchant(map_width_px//2 - CHARACTER_SIZE, map_height_px//2 - 220 - CHARACTER_SIZE)
 ch1 = Enemy(map_width_px//2, map_height_px//2 + 250)
 
 visuals = pg.sprite.Group()
-characters.add(player, ch1)
+characters.add(player, ch1, merchant)
 
 camera = Camera(map_width_px, map_height_px)
 
 current_cell = room_map[int(player.rect.y // WALL_SIZE // 16)][int(player.rect.x // WALL_SIZE // 16)]
+defeat_timer_start = pg.time.get_ticks()
 
 running = True
 while running:
+    defeat_timer_seconds = 600 - (pg.time.get_ticks() - defeat_timer_start) // 1000
+
+    fps = round(clock.get_fps())
+    print(fps)
+
+    action_objects = []
+    for char in characters:
+        if isinstance(char, Merchant):
+            action_objects += char.items_to_sell
+
+
     for event in pg.event.get():
         if event.type == pg.QUIT:
             running = False
@@ -1148,6 +1262,13 @@ while running:
         keys = pg.key.get_pressed()
         if event.type == pg.KEYDOWN:
             dx, dy = 0, 0
+
+            if keys[pg.K_e]:
+                for obj in action_objects:
+                    performed = obj.perform_action(player)
+
+                    if performed:
+                        break
 
             if keys[pg.K_UP] or keys[pg.K_DOWN] or keys[pg.K_RIGHT] or keys[pg.K_LEFT]:
                 direction = [0, 0]
@@ -1193,6 +1314,9 @@ while running:
         for obj in group:
             screen.blit(obj.image, (obj.rect.x + camera.rect.x, obj.rect.y + camera.rect.y))
 
+            if isinstance(obj, Merchant):
+                obj.render_items(camera, player)
+
     camera.update(player)
 
     for trap in traps:
@@ -1223,7 +1347,7 @@ while running:
 
     for char in characters:
         # display health bar
-        if char != player and char.health < char.full_health:
+        if isinstance(char, Enemy) and char.health < char.full_health:
             health_bar_length = 60
             health_bar_height = 10
             current_health_length = (char.health / char.full_health) * health_bar_length
@@ -1254,7 +1378,7 @@ while running:
                         player.take_damage(1)
                     else:
                         testedChar.health -= dmg
-                        if testedChar.health <= 0:
+                        if isinstance(testedChar, Enemy) and testedChar.health <= 0:
                             characters.remove(testedChar)
                             images = load_images_from_folder("effects/explosion")
                             visuals.add(Visual(images, testedChar.rect.inflate(20, 20), pg.time.get_ticks(), 400))
@@ -1267,6 +1391,7 @@ while running:
 
             visuals.add(attackVisual)
 
+
     wx = len(room_map[0]) * 16
     wy = len(room_map) * 16
 
@@ -1278,7 +1403,7 @@ while running:
                     discovered_mini_map[y][x] = new_cell
 
     current_cell = new_cell
-    display_ui(player.coins, player.health, discovered_mini_map, current_cell, player.number_of_keys)
+    display_ui(player.coins, player.health, discovered_mini_map, current_cell, player.number_of_keys, defeat_timer_seconds)
 
     visuals.update()
     decorations.update()
