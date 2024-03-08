@@ -1,5 +1,5 @@
 import pygame as pg
-from constans import WALL_SIZE, CHARACTER_SIZE
+from shared import WALL_SIZE, CHARACTER_SIZE
 import csv
 import os
 

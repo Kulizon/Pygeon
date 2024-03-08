@@ -5,8 +5,8 @@ import pygame as pg
 import random
 from copy import copy, deepcopy
 
-from characters import Character
-from constans import WALL_SIZE, CHARACTER_SIZE
+from characters import Character, Player
+from shared import WALL_SIZE, CHARACTER_SIZE, characters, items, traps, visuals
 from utility import Animated, Visual, load_images_from_folder, load_tileset, convert_csv_to_2d_list
 
 pg.init()
@@ -258,7 +258,7 @@ class Enemy(Character):
             self.last_turn_around_animation_time = pg.time.get_ticks()
             self.roam_wait_time = random.randint(1500, 2500)
 
-    def update(self, player_rect, obstacles, *args, **kwargs):
+    def update(self, obstacles, player_rect, *args, **kwargs):
 
         if self.about_to_attack_time != 0:
             if self.attack_dir and pg.time.get_ticks() - self.about_to_attack_time > 500:
@@ -426,154 +426,6 @@ class Merchant(Character):
                 new_item.rect = item.rect
                 self.items_to_sell[i] = new_item
 
-
-class Player(Character):
-    def __init__(self, start_x, start_y):
-        super().__init__(start_x, start_y, "assets/player_character")
-        self.dest_x = self.rect.x
-        self.dest_y = self.rect.y
-        self.coins = 0
-        self.health = 10
-        self.full_health = 12
-        self.speed = 5
-        self.dashing = False
-        self.last_dash_time = pg.time.get_ticks()
-        self.dash_cooldown = 200
-        self.dash_animation_images = load_images_from_folder("assets/effects/dash")
-        self.move_animation_images = load_images_from_folder("assets/effects/step")
-        self.last_move_animation = pg.time.get_ticks()
-        self.move_direction = [1, 0]
-        self.current_dash_length = 0
-        self.goal_dash_length = 100
-
-        self.normal_images = load_images_from_folder("assets/player_character")
-        self.hurt_images = load_images_from_folder("assets/player_character_hurt")
-        self.harm_animation_duration = 200
-        self.harm_animation_start_time = pg.time.get_ticks() - self.harm_animation_duration * 2
-        self.max_flash_count = 5
-        self.flash_count = self.max_flash_count
-
-        self.number_of_keys = 0
-
-    def update(self, *args, **kwargs):
-        self.animate_new_frame()
-        self.update_dash()
-
-        if self.flash_count < self.max_flash_count:
-            diff = pg.time.get_ticks() - self.harm_animation_start_time
-
-            if self.flash_count % 2 == 0 and self.images != self.hurt_images and diff < self.harm_animation_duration:
-                self.images = self.hurt_images
-                self.animate()
-            elif diff > self.harm_animation_duration:
-                self.images = self.normal_images
-                self.animate()
-                self.flash_count += 1
-                self.harm_animation_start_time = pg.time.get_ticks()
-
-    def take_damage(self, damage):
-        self.health -= damage
-        self.harm_animation_start_time = pg.time.get_ticks()
-        self.flash_count = 0
-
-    def update_dash(self):
-        if self.dashing:
-            self.move_player(self.move_direction[0], self.move_direction[1], True)
-
-            if self.current_dash_length >= self.goal_dash_length:
-                self.dashing = False
-                self.current_dash_length = 0
-
-    def move_player(self, dx, dy, ignore_dash_check=False):
-        if self.dashing and not ignore_dash_check:
-            return
-
-        distance = math.sqrt(dx**2 + dy**2)
-        if distance != 0:
-            dx /= distance
-            dy /= distance
-
-        if self.dashing:
-            t = min(1, int(self.current_dash_length / self.goal_dash_length))
-            easing_factor = t * (2 - t)
-            dx *= self.speed * 2 * (1 + easing_factor)
-            dy *= self.speed * 2 * (1 + easing_factor)
-        else:
-            dx *= self.speed
-            dy *= self.speed
-
-        self.current_dash_length += distance * self.speed
-
-        moved = True
-
-        new_x = self.rect.x + dx
-        new_y = self.rect.y + dy
-
-        self.move_direction = (0 if dx == 0 else math.copysign(1, dx), 0 if dy == 0 else math.copysign(1, dy))
-
-        new_rect = pg.Rect(new_x, new_y, CHARACTER_SIZE, CHARACTER_SIZE)
-        objs = [characters, walls]
-
-        is_collision = False
-        for obj in walls:
-            if obj.rect.colliderect(new_rect) and obj != self:
-                is_collision = True
-                break
-        if is_collision:
-            print("Collision, cannot move")
-            self.dashing = False
-            self.last_dash_time = pg.time.get_ticks()
-
-        if not is_collision:
-            self.rect = new_rect
-            if dx != 0:
-                self.flip_model_on_move(dx)
-        else:
-            # if collision occurred, try moving along each axis individually
-            new_x_rect = pg.Rect(new_x, self.rect.y, CHARACTER_SIZE, CHARACTER_SIZE)
-            new_y_rect = pg.Rect(self.rect.x, new_y, CHARACTER_SIZE, CHARACTER_SIZE)
-
-            is_collision_along_x = any(obj.rect.colliderect(new_x_rect) and obj != self for obj in walls)
-            is_collision_along_y = any(obj.rect.colliderect(new_y_rect) and obj != self for obj in walls)
-
-            if not is_collision_along_x:
-                self.rect.x = new_x
-                self.flip_model_on_move(dx)
-            elif not is_collision_along_y:
-                self.rect.y = new_y
-            else:
-                # both axes have collisions, cannot move
-                self.dashing = False
-                moved = False
-                self.last_dash_time = pg.time.get_ticks()
-                print("Collision, cannot move")
-
-        if moved and pg.time.get_ticks() - self.last_move_animation > 220:
-            visuals.add(Visual(self.move_animation_images, self.rect.move(-25 * self.move_direction[0], 10 - 40 * self.move_direction[1]).inflate(-35, -35), pg.time.get_ticks(), 250))
-            self.last_move_animation = pg.time.get_ticks()
-
-    def dash(self):
-        if pg.time.get_ticks() - self.last_dash_time < self.dash_cooldown:
-            return
-
-        self.current_dash_length = 0
-
-        self.last_dash_time = pg.time.get_ticks()
-        self.dashing = True
-
-        self.flip_model_on_move(dx)
-
-        dash_rotation = 90 if dy < 0 else -90 if dy > 0 else 0
-        visuals.add(Visual(self.dash_animation_images, self.rect.copy(), pg.time.get_ticks(), 200, not(self.flipped_x), rotate=dash_rotation))
-
-    def add_item(self, item):
-
-        if isinstance(item, Key):
-            self.number_of_keys += 1
-
-        if isinstance(item, PlayerUpgradeItem):
-            if item.stat == "movement_speed":
-                self.speed *= item.modifier
 
 
 class Camera:
@@ -795,9 +647,7 @@ for y, row in enumerate(discovered_mini_map):
         if el != 1:
             discovered_mini_map[y][x] = 0
 
-characters = pg.sprite.Group()
-traps = pg.sprite.Group()
-items = pg.sprite.Group()
+
 
 room_tile_maps = []
 for i in range(1, 7):
@@ -1063,7 +913,6 @@ player = Player(map_width_px//2 - CHARACTER_SIZE, map_height_px//2 - CHARACTER_S
 merchant = Merchant(map_width_px//2 - CHARACTER_SIZE, map_height_px//2 - 220 - CHARACTER_SIZE)
 ch1 = Enemy(map_width_px//2, map_height_px//2 + 250)
 
-visuals = pg.sprite.Group()
 characters.add(player, ch1, merchant)
 
 camera = Camera(map_width_px, map_height_px)
@@ -1122,7 +971,7 @@ while running:
     dy = 1 if keys[pg.K_w] else -1 if keys[pg.K_s] else 0
 
     if dx != 0 or dy != 0:
-        player.move_player(dx, -dy)
+        player.move_player(dx, -dy, walls)
 
     screen.fill("#25141A")
 
@@ -1238,7 +1087,7 @@ while running:
     decorations.update()
     traps.update()
     items.update()
-    characters.update(player.rect, walls)
+    characters.update(walls, player.rect)
 
     pg.display.flip()
     clock.tick(60)
