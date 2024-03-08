@@ -3,7 +3,7 @@ import random
 
 import pygame as pg
 
-from items_and_traps import Item, Key
+from items import Item, Key
 from shared import WALL_SIZE, CHARACTER_SIZE, characters, visuals, font
 from utility import Animated, load_images_from_folder, Visual, NotificationVisual, ActionObject
 
