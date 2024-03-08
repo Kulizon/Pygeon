@@ -2,8 +2,11 @@ import math
 import random
 
 import pygame as pg
-from shared import WALL_SIZE, CHARACTER_SIZE, characters, visuals
-from utility import Animated, load_images_from_folder, Visual, NotificationVisual
+
+from items_and_traps import Item, Key
+from shared import WALL_SIZE, CHARACTER_SIZE, characters, visuals, font
+from utility import Animated, load_images_from_folder, Visual, NotificationVisual, ActionObject
+
 
 class Character(pg.sprite.Sprite, Animated):
     def __init__(self, x, y, images_path):
@@ -365,3 +368,66 @@ class Enemy(Character):
             if obstacle.rect.clipline((self.rect.center, position_rect.center)):
                 return False
         return True
+
+
+
+
+
+
+class PlayerUpgradeItem(Item):
+    def __init__(self, images_path, x, y, stat, modifier):
+        super().__init__(images_path, x, y, 300, (WALL_SIZE * 0.8, WALL_SIZE * 0.8))
+        self.stat = stat
+        self.modifier = modifier
+
+class MerchantItem(Item, ActionObject):
+    def __init__(self, item, price):
+        self.item_to_sell = item
+        Item.__init__(self, "assets/items_and_traps_animations/mini_chest", item.rect.x, item.rect.y, item.frame_duration, item.rect.size)
+        ActionObject.__init__(self, self.rect, self.sell, CHARACTER_SIZE)
+
+        self.images = item.images
+        self.price = price
+        self.bought = False
+
+    def sell(self, player):
+        if player.coins >= self.price and self.price >= 0:
+            player.coins -= self.price
+
+            self.bought = True
+            player.add_item(self.item_to_sell)
+
+
+
+class Merchant(Character):
+    def __init__(self, start_x, start_y):
+        Character.__init__(self, start_x, start_y, "assets/merchant")
+
+        it1 = MerchantItem(Key(self.rect.x - 2 * WALL_SIZE, start_y + self.rect.height + 20), 5)
+        it2 = MerchantItem(Key(self.rect.x, start_y + self.rect.height + 20), 0)
+        it3 = MerchantItem(PlayerUpgradeItem("assets/items_and_traps_animations/flag", self.rect.x + 2 * WALL_SIZE, start_y + self.rect.height + 20, "movement_speed", 2), 0)
+
+        self.items_to_sell = [it1, it2, it3]
+
+    def render_items(self, camera, player, screen):
+        for item in self.items_to_sell:
+
+            screen.blit(item.image, (item.rect.x + camera.rect.x, item.rect.y + camera.rect.y))
+
+            color = (255, 0, 0) if item.is_close(player) else (255, 255, 255)
+
+            text = font.render(str(item.price) + "$", True, color)
+            screen.blit(text, (item.rect.x + camera.rect.x, item.rect.y + camera.rect.y + item.image.get_height() + 10))
+
+    def update(self, *args, **kwargs):
+        self.animate_new_frame()
+
+        for i, item in enumerate(self.items_to_sell):
+            item.update()
+
+            if item.bought:
+                new_item = MerchantItem(Item("assets/items_and_traps_animations/mini_chest", 0, 0, 500, [item.rect.width, item.rect.height]), -1)
+                new_item.rect = item.rect
+                self.items_to_sell[i] = new_item
+
+

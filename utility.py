@@ -1,3 +1,5 @@
+import math
+
 import pygame as pg
 from shared import WALL_SIZE, CHARACTER_SIZE
 import csv
@@ -101,3 +103,27 @@ class NotificationVisual(Visual):
             self.rect.y -= 3
 
         super().update(self, args, kwargs)
+
+
+
+
+class ActionObject:
+    def __init__(self, rect, action_to_perform, max_distance = CHARACTER_SIZE):
+        self.rect = rect
+        self.action_to_perform = action_to_perform
+        self.max_distance = max_distance
+
+
+    def is_close(self, player):
+        dx = self.rect.centerx - player.rect.centerx
+        dy = self.rect.centery - player.rect.centery
+
+        distance = math.sqrt(dx**2 + dy**2)
+
+        return distance < self.max_distance
+
+    def perform_action(self, player):
+        if self.is_close(player):
+            self.action_to_perform(player)
+            return True
+        return False

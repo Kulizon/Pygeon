@@ -5,9 +5,10 @@ import pygame as pg
 import random
 from copy import copy, deepcopy
 
-from characters import Character, Player, Enemy
-from shared import WALL_SIZE, CHARACTER_SIZE, characters, items, traps, visuals
+from characters import Character, Player, Enemy, Merchant
+from shared import WALL_SIZE, CHARACTER_SIZE, characters, items, traps, visuals, font
 from utility import Animated, Visual, load_images_from_folder, load_tileset, convert_csv_to_2d_list
+from items_and_traps import Chest, Key, Item
 
 pg.init()
 
@@ -39,45 +40,6 @@ class AnimatedMapTile(MapTile, Animated):
 
 
 
-class Item(pg.sprite.Sprite, Animated):
-    def __init__(self, images_path, x, y, frame_duration, size, rotate=0):
-        super().__init__()
-        self.rect = pg.Rect(x + (WALL_SIZE - size[0])//2, y + (WALL_SIZE - size[1])//2, size[0], size[1])
-        images = load_images_from_folder(images_path)
-        Animated.__init__(self, images, size, frame_duration, False, False, rotate)
-
-    def update(self, *args, **kwargs):
-        self.animate_new_frame()
-
-class Key(Item):
-    def __init__(self, x, y):
-        super().__init__("assets/items_and_traps_animations/keys/silver", x, y, 200,
-             [WALL_SIZE * 0.8, WALL_SIZE * 0.8])
-
-
-class Chest(Item):
-    def __init__(self, x, y, coins, health_potions):
-        Item.__init__(self, "assets/items_and_traps_animations/chest/normal", x, y, 280, (WALL_SIZE * 0.8, WALL_SIZE * 0.8))
-
-        self.open_chest_images = load_images_from_folder("assets/items_and_traps_animations/chest/open")
-        self.coins = coins
-        self.health_potions = health_potions
-        self.opened = False
-        self.added_visual = False
-
-    def update(self, *args, **kwargs):
-        if self.opened and self.cur_frame == self.last_frame and not self.added_visual:
-            visuals.add(NotificationVisual(load_images_from_folder("assets/items_and_traps_animations/coin"), self.rect.move(-WALL_SIZE * 0.1, -60), True, 1600, iterations=3))
-            player.coins += random.randint(10, 25)
-            self.added_visual = True
-        elif not self.added_visual:
-            super().update(args, kwargs)
-
-    def open(self):
-        if not self.opened:
-            self.cur_frame = 0
-            self.images = self.open_chest_images
-            self.opened = True
 
 class Trap(pg.sprite.Sprite, Animated):
     def __init__(self, images_path, x, y, frame_duration, cooldown, attack_dir, size, rotate=0):
@@ -200,86 +162,6 @@ class SpikeTrap(Trap):
 
 
 
-class ActionObject:
-    def __init__(self, rect, action_to_perform, max_distance = CHARACTER_SIZE):
-        self.rect = rect
-        self.action_to_perform = action_to_perform
-        self.max_distance = max_distance
-
-
-    def is_close(self, player):
-        dx = self.rect.centerx - player.rect.centerx
-        dy = self.rect.centery - player.rect.centery
-
-        distance = math.sqrt(dx**2 + dy**2)
-
-        return distance < self.max_distance
-
-    def perform_action(self, player):
-        if self.is_close(player):
-            self.action_to_perform(player)
-            return True
-        return False
-
-
-class PlayerUpgradeItem(Item):
-    def __init__(self, images_path, x, y, stat, modifier):
-        super().__init__(images_path, x, y, 300, (WALL_SIZE * 0.8, WALL_SIZE * 0.8))
-        self.stat = stat
-        self.modifier = modifier
-
-class MerchantItem(Item, ActionObject):
-    def __init__(self, item, price):
-        self.item_to_sell = item
-        Item.__init__(self, "assets/items_and_traps_animations/mini_chest", item.rect.x, item.rect.y, item.frame_duration, item.rect.size)
-        ActionObject.__init__(self, self.rect, self.sell, CHARACTER_SIZE)
-
-        self.images = item.images
-        self.price = price
-        self.bought = False
-
-    def sell(self, player):
-        if player.coins >= self.price and self.price >= 0:
-            player.coins -= self.price
-
-            self.bought = True
-            player.add_item(self.item_to_sell)
-
-
-
-class Merchant(Character):
-    def __init__(self, start_x, start_y):
-        Character.__init__(self, start_x, start_y, "assets/merchant")
-
-        it1 = MerchantItem(Key(self.rect.x - 2 * WALL_SIZE, start_y + self.rect.height + 20), 5)
-        it2 = MerchantItem(Key(self.rect.x, start_y + self.rect.height + 20), 0)
-        it3 = MerchantItem(PlayerUpgradeItem("assets/items_and_traps_animations/flag", self.rect.x + 2 * WALL_SIZE, start_y + self.rect.height + 20, "movement_speed", 2), 0)
-
-
-
-        self.items_to_sell = [it1, it2, it3]
-
-    def render_items(self, camera, player):
-        for item in self.items_to_sell:
-
-            screen.blit(item.image, (item.rect.x + camera.rect.x, item.rect.y + camera.rect.y))
-
-            color = (255, 0, 0) if item.is_close(player) else (255, 255, 255)
-
-            text = font.render(str(item.price) + "$", True, color)
-            screen.blit(text, (item.rect.x + camera.rect.x, item.rect.y + camera.rect.y + item.image.get_height() + 10))
-
-    def update(self, *args, **kwargs):
-        self.animate_new_frame()
-
-        for i, item in enumerate(self.items_to_sell):
-            item.update()
-
-            if item.bought:
-                new_item = MerchantItem(Item("assets/items_and_traps_animations/mini_chest", 0, 0, 500, [item.rect.width, item.rect.height]), -1)
-                new_item.rect = item.rect
-                self.items_to_sell[i] = new_item
-
 
 
 class Camera:
@@ -351,8 +233,6 @@ coin_images = load_tileset("assets/coin.png", 13, 13)
 coin_animated = Animated(coin_images, (30, 30), 200)
 key_images = load_images_from_folder("assets/items_and_traps_animations/keys/silver_resized")
 key_animated = Animated(key_images, (30, 22), 200)
-font = pg.font.Font("assets/retro_font.ttf", 22)
-
 
 def display_health(health):
     for i in range(health):
@@ -847,7 +727,7 @@ while running:
             screen.blit(obj.image, (obj.rect.x + camera.rect.x, obj.rect.y + camera.rect.y))
 
             if isinstance(obj, Merchant):
-                obj.render_items(camera, player)
+                obj.render_items(camera, player, screen)
 
     camera.update(player)
 
@@ -939,8 +819,8 @@ while running:
 
     visuals.update()
     decorations.update()
-    traps.update()
-    items.update()
+    traps.update(player)
+    items.update(player)
     characters.update(walls, player.rect)
 
     pg.display.flip()
