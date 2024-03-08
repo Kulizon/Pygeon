@@ -3,99 +3,18 @@ import math
 
 import pygame as pg
 import random
-import csv
-import os
 from copy import copy, deepcopy
+
+from characters import Character
+from constans import WALL_SIZE, CHARACTER_SIZE
+from utility import Animated, Visual, load_images_from_folder, load_tileset, convert_csv_to_2d_list
 
 pg.init()
 
-WIDTH, HEIGHT = 1000, 700
-WHITE = (255, 255, 255)
+SCREEN_WIDTH, SCREEN_HEIGHT = 1000, 700
 
-screen = pg.display.set_mode((WIDTH, HEIGHT))
+screen = pg.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 clock = pg.time.Clock()
-
-CHARACTER_SIZE = 55
-WALL_SIZE = 55
-
-def compare_rect(rect1, rect2):
-    return (rect1.x != rect2.x or
-            rect1.y != rect2.y or
-            rect1.width != rect2.width or
-            rect1.height != rect2.height)
-
-
-class Animated():
-    def __init__(self, images, size, frame_duration, flipped_x=False, flipped_y=False, rotate=0):
-        self.images = images
-        self.image = pg.transform.scale(images[0], size)
-        self.frame_duration = frame_duration
-        self.last_frame_time = pg.time.get_ticks()
-        self.cur_frame = 0
-        self.last_frame = len(images) - 1
-        self.size = size
-
-        self.flipped_x = flipped_x
-        self.flipped_y = flipped_y
-        self.rotate = rotate
-
-        self.adjust_image()
-
-    def adjust_image(self):
-        self.image = pg.transform.scale(self.images[self.cur_frame], self.size)
-        self.image = pg.transform.flip(self.image, self.flipped_x, self.flipped_y)
-        self.image = pg.transform.rotate(self.image, self.rotate)
-
-    def animate(self):
-        self.last_frame_time = pg.time.get_ticks()
-        self.cur_frame = (self.cur_frame + 1) % len(self.images)
-        self.adjust_image()
-
-    def animate_new_frame(self):
-        if pg.time.get_ticks() - self.last_frame_time > self.frame_duration:
-            self.animate()
-
-class Visual(pg.sprite.Sprite, Animated):
-    def __init__(self, images, rect, start_time, duration, flipped_x=False, flipped_y=False, rotate=0, iterations=1):
-        pg.sprite.Sprite.__init__(self)
-        Animated.__init__(self, images, (rect.width, rect.height), int(duration/(len(images)*iterations)), flipped_x, flipped_y, rotate)
-
-        self.start_time = start_time
-        self.duration = duration
-        self.image = images[0]
-        self.adjust_image()
-        self.rect = rect
-
-    def update(self, *args, **kwargs):
-        self.animate_new_frame()
-
-        if pg.time.get_ticks() - self.start_time > self.duration:
-            # remove yourself from Group
-            self.kill()
-
-
-class NotificationVisual(Visual):
-    def __init__(self, images, rect, float_in=False, duration=-1, iterations=1):
-        ratio = images[0].get_width() / images[0].get_height()
-
-        if images[0].get_width() > images[0].get_height():
-            rect.width = WALL_SIZE
-            rect.height = WALL_SIZE * ratio
-        else:
-            rect.height = WALL_SIZE
-            rect.width = WALL_SIZE * ratio
-
-        super().__init__(images, rect, pg.time.get_ticks(), duration if duration != -1 else len(images) * 100, iterations=iterations)
-
-        self.float_in = float_in
-        self.goal_position_y = rect.y - 20
-
-    def update(self, *args, **kwargs):
-        if self.float_in and self.rect.y - self.goal_position_y > 5:
-            self.rect.y -= 3
-
-        super().update(self, args, kwargs)
-
 
 
 class MapTile(pg.sprite.Sprite):
@@ -118,67 +37,6 @@ class AnimatedMapTile(MapTile, Animated):
     def update(self):
         self.animate_new_frame()
 
-class Character(pg.sprite.Sprite, Animated):
-    def __init__(self, x, y, images_path):
-        super().__init__()
-        self.health = 0
-        self.full_health = 0
-        images = load_images_from_folder(images_path)
-
-        size_multiplier = 0.96
-
-        Animated.__init__(self, images, (CHARACTER_SIZE * size_multiplier, CHARACTER_SIZE * size_multiplier), 400)
-        self.last_attack_time = pg.time.get_ticks()
-        self.attack_cooldown = 0
-        self.rect = self.image.get_rect(topleft=(x + (CHARACTER_SIZE * size_multiplier) // 2, y + (CHARACTER_SIZE * size_multiplier) // 2))
-        self.attacks = []
-        self.speed = 1
-
-    def flip_model_on_move(self, dx):
-        if dx < 0 and not self.flipped_x:
-            self.flipped_x = True
-            self.animate()
-        elif dx > 0 and self.flipped_x:
-            self.flipped_x = False
-            self.animate()
-
-
-    def slash_attack(self, direction):
-        if pg.time.get_ticks() - self.last_attack_time < self.attack_cooldown:
-            return
-
-        self.last_attack_time = pg.time.get_ticks()
-
-        if direction[1] == 1:
-            dim = (CHARACTER_SIZE * 3, CHARACTER_SIZE)
-            dest = (self.rect.x - CHARACTER_SIZE, self.rect.y - CHARACTER_SIZE)
-        elif direction[1] == -1:
-            dim = (CHARACTER_SIZE * 3, CHARACTER_SIZE)
-            dest = (self.rect.x - CHARACTER_SIZE, self.rect.y + CHARACTER_SIZE)
-        elif direction[0] == -1:
-            dim = (CHARACTER_SIZE, CHARACTER_SIZE * 3)
-            dest = (self.rect.x - CHARACTER_SIZE, self.rect.y - CHARACTER_SIZE)
-        elif direction[0] == 1:
-            dim = (CHARACTER_SIZE, CHARACTER_SIZE * 3)
-            dest = (self.rect.x + CHARACTER_SIZE, self.rect.y - CHARACTER_SIZE)
-        else:
-            return
-
-        scale = 0.90
-        dest = tuple(int(dest[i] + dim[i] * (1-scale)/2) for i in range(len(dest)))
-        dim = tuple(int(x * scale) for x in dim)
-
-        attack = {
-            'dim': dim,
-            'dest': dest,
-            'start_time': pg.time.get_ticks(),
-            'duration': 150,
-            'flipped_x': direction[0] == -1,
-            'flipped_y': direction[1] == 1,
-            "damage": 34
-        }
-
-        self.attacks.append(attack)
 
 
 class Item(pg.sprite.Sprite, Animated):
@@ -552,7 +410,7 @@ class Merchant(Character):
 
             screen.blit(item.image, (item.rect.x + camera.rect.x, item.rect.y + camera.rect.y))
 
-            color = (255, 0, 0) if item.is_close(player) else WHITE
+            color = (255, 0, 0) if item.is_close(player) else (255, 255, 255)
 
             text = font.render(str(item.price) + "$", True, color)
             screen.blit(text, (item.rect.x + camera.rect.x, item.rect.y + camera.rect.y + item.image.get_height() + 10))
@@ -728,44 +586,15 @@ class Camera:
         self.initial_height = height
 
     def update(self, target):
-        x = -target.rect.x + (WIDTH // 2)
-        y = -target.rect.y + (HEIGHT // 2)
+        x = -target.rect.x + (SCREEN_WIDTH // 2)
+        y = -target.rect.y + (SCREEN_HEIGHT // 2)
 
         x = min(0, x)
         y = min(0, y)
-        x = max(-(self.width - WIDTH), x)
-        y = max(-(self.height - HEIGHT), y)
+        x = max(-(self.width - SCREEN_WIDTH), x)
+        y = max(-(self.height - SCREEN_HEIGHT), y)
 
         self.rect = pg.Rect(x, y, self.width, self.height)
-
-
-def load_images_from_folder(path):
-    images = []
-    for filename in os.listdir(path):
-        img_path = os.path.join(path, filename)
-        if os.path.isfile(img_path):
-            image = pg.image.load(img_path).convert_alpha()
-            images.append(image)
-    return images
-
-def convert_csv_to_2d_list(csv_file: str):
-    tile_map = []
-    with open(csv_file, "r") as f:
-        for map_row in csv.reader(f):
-            tile_map.append(list(map(int, map_row)))
-    return tile_map
-
-def load_tileset(image_path, tile_width, tile_height):
-    image = pg.image.load(image_path).convert_alpha()
-    image_width, image_height = image.get_size()
-
-    tiles = []
-    for y in range(0, image_height, tile_height):
-        for x in range(0, image_width, tile_width):
-            tile = image.subsurface((x, y, tile_width, tile_height)).convert_alpha()
-            tiles.append(tile)
-
-    return tiles
 
 
 walls = pg.sprite.Group()
@@ -826,7 +655,7 @@ def display_health(health):
 
 def display_coins(coins):
     screen.blit(coin_animated.image, (10, 50))
-    text = font.render("0" * (3 - int(math.log10(coins+1))) + str(coins), True, WHITE)
+    text = font.render("0" * (3 - int(math.log10(coins+1))) + str(coins), True, (255, 255, 255))
     screen.blit(text, (50, 52))
     coin_animated.animate_new_frame()
 
@@ -839,13 +668,13 @@ def display_full_map(map, current_cell):
     map_width = len(map[0]) * cell_size + (len(map[0]) - 1) * gap
     map_height = len(map) * cell_size + (len(map) - 1) * gap
 
-    offset_x = (WIDTH - map_width) // 2
-    offset_y = (HEIGHT - map_height) // 2
+    offset_x = (SCREEN_WIDTH - map_width) // 2
+    offset_y = (SCREEN_HEIGHT - map_height) // 2
 
     bg_width = max(400, map_width + 100)
     bg_height = max(400, map_height + 100)
 
-    pg.draw.rect(screen, (0, 0, 0), ((WIDTH - bg_width)//2, (HEIGHT - bg_height)//2, bg_width, bg_width))
+    pg.draw.rect(screen, (0, 0, 0), ((SCREEN_WIDTH - bg_width) // 2, (SCREEN_HEIGHT - bg_height) // 2, bg_width, bg_width))
 
     for y, row in enumerate(map):
         for x, cell in enumerate(row):
@@ -889,11 +718,11 @@ def display_mini_map(map, current_cell):
     map_size_px = (cell_width + gap) * 6
     cells_gap = screen_gap - (mini_map_size - map_size_px) // 2
 
-    pg.draw.rect(screen, (0, 0, 0), (WIDTH - screen_gap - map_size_px, screen_gap, map_size_px, map_size_px))
+    pg.draw.rect(screen, (0, 0, 0), (SCREEN_WIDTH - screen_gap - map_size_px, screen_gap, map_size_px, map_size_px))
 
     for y in range(5):
         for x in range(5):
-            display_x = WIDTH - cells_gap - map_size_px + (x+1) * (cell_width + gap)
+            display_x = SCREEN_WIDTH - cells_gap - map_size_px + (x + 1) * (cell_width + gap)
             display_y = cells_gap + 2 + y * cell_height + gap * y
             cell_value = mini_map[y][x]
             color = (255, 0, 0) if cell_value == current_cell else (0, 255, 0) if cell_value != 0 else (0, 0, 0)
@@ -902,7 +731,7 @@ def display_mini_map(map, current_cell):
 def display_keys(number_of_keys):
     screen.blit(key_animated.image, (10, 92))
 
-    text = font.render(str(number_of_keys), True, WHITE)
+    text = font.render(str(number_of_keys), True, (255, 255, 255))
     screen.blit(text, (50, 90))
 
     key_animated.animate_new_frame()
@@ -914,7 +743,7 @@ def display_timer(timer_seconds):
     seconds = timer_seconds % 60
     minutes = timer_seconds // 60
 
-    text_color = (255, 0, 0) if minutes == 1 else WHITE
+    text_color = (255, 0, 0) if minutes == 1 else (255, 255, 255)
 
     text = str(minutes) + ":"
     if seconds < 10:
@@ -922,7 +751,7 @@ def display_timer(timer_seconds):
     text += str(seconds)
 
     text = font.render(text, True, text_color)
-    screen.blit(text, (WIDTH - text.get_width() - screen_gap, mini_map_size + screen_gap + text.get_height()))
+    screen.blit(text, (SCREEN_WIDTH - text.get_width() - screen_gap, mini_map_size + screen_gap + text.get_height()))
 
 
 def display_ui(coins, health, mini_map, current_cell, number_of_keys, timer_seconds):
