@@ -174,25 +174,28 @@ def make_doorways(i, j, room_map, room_layout):
         room_layout[middle_tile + 2][1] = 10
 
 
-def traverse_rooms_in_random_order(room_layout, decorations_layout, x_off, y_off, callback):
-    coordinates = [(row, col) for row in range(len(room_layout)) for col in range(len(room_layout[row]))]
+def traverse_rooms_in_random_order(room_layout, decorations_layout, x_off, y_off, callback, to_add=1):
+    for i in range(to_add):
+        coordinates = [(row, col) for row in range(len(room_layout)) for col in range(len(room_layout[row]))]
+        random.shuffle(coordinates)
 
+        for row, col in coordinates:
+            pos_x = col + x_off
+            pos_y = row + y_off
 
-
-    for row, col in coordinates:
-        pos_x = col + x_off
-        pos_y = row + y_off
-
-        room_tile_id = room_layout[row][col]
-        decorations_tile_id = room_layout[row][col]
-
-        added = callback(room_tile_id, decorations_tile_id, pos_x, pos_y)
-        if added:
-            decorations_layout[row][col] = 1000             # mark as occupied
+            added = callback(room_layout, decorations_layout, (row, col), pos_x, pos_y)
+            if added:
+                decorations_layout[row][col] = 1000  # mark as occupied
+                break
 
 def generate_key(room_layout, decorations_layout, x_off, y_off):
-    def place_key(tile_id, decorations_tile_id, pos_x, pos_y):
-        if tile_id != void_tile_id and tile_id not in wall_ids and decorations_tile_id == -1:
+
+    def place_key(room_layout, decorations_layout, grid_position, pos_x, pos_y):
+        row, col = grid_position
+        room_tile_id = room_layout[row][col]
+        decorations_tile_id = decorations_layout[row][col]
+
+        if room_tile_id != void_tile_id and room_tile_id not in wall_ids and decorations_tile_id == -1:
             key = Key(pos_x * WALL_SIZE, pos_y * WALL_SIZE)
             items.add(key)
 
@@ -201,10 +204,78 @@ def generate_key(room_layout, decorations_layout, x_off, y_off):
 
     traverse_rooms_in_random_order(room_layout, decorations_layout, x_off, y_off, place_key)
 
+def generate_flamethrower(room_layout, decorations_layout, x_off, y_off):
+
+    def place_flamethrower(room_layout, decorations_layout, grid_position, pos_x, pos_y):
+        row, col = grid_position
+        room_tile_id = room_layout[row][col]
+        decorations_tile_id = decorations_layout[row][col]
+
+        if room_tile_id in wall_ids and decorations_tile_id == -1:
+            for direction in ['down', 'left', 'right']:
+                attack_dir = find_wall_with_free_n_spaces(room_layout, decorations_layout, direction, col, row, 3)
+
+                if attack_dir[0] or attack_dir[1]:
+                    flamethrower = FlamethrowerTrap(pos_x * WALL_SIZE, pos_y * WALL_SIZE, attack_dir)
+                    traps.add(flamethrower)
+
+                    return True
+        return False
+
+    traverse_rooms_in_random_order(room_layout, decorations_layout, x_off, y_off, place_flamethrower)
 
 
+def generate_arrow_trap(room_layout, decorations_layout, x_off, y_off):
+    def place_arrow_trap(room_layout, decorations_layout, grid_position, pos_x, pos_y):
+        row, col = grid_position
+        room_tile_id = room_layout[row][col]
+        decorations_tile_id = decorations_layout[row][col]
+
+        if room_tile_id in wall_ids and decorations_tile_id == -1:
+            for direction in ['down', 'left', 'right']:
+                attack_dir = find_wall_with_free_n_spaces(room_layout, decorations_layout, direction, col, row, 6)
+
+                if attack_dir[0] or attack_dir[1]:
+                    arrow_trap = ArrowTrap(pos_x * WALL_SIZE, pos_y * WALL_SIZE, attack_dir)
+                    traps.add(arrow_trap)
+
+                    return True
+        return False
+
+    traverse_rooms_in_random_order(room_layout, decorations_layout, x_off, y_off, place_arrow_trap)
+
+def generate_spike_trap(room_layout, decorations_layout, x_off, y_off, to_add):
+
+    def place_spike_trap(room_layout, decorations_layout, grid_position, pos_x, pos_y):
+        row, col = grid_position
+        room_tile_id = room_layout[row][col]
+        decorations_tile_id = decorations_layout[row][col]
+
+        if room_tile_id != void_tile_id and room_tile_id not in wall_ids and decorations_tile_id == -1:
+
+            spike_trap = SpikeTrap(pos_x * WALL_SIZE, pos_y * WALL_SIZE)
+            traps.add(spike_trap)
+
+            return True
+        return False
+
+    traverse_rooms_in_random_order(room_layout, decorations_layout, x_off, y_off, place_spike_trap, to_add)
 
 
+def generate_chest(room_layout, decorations_layout, x_off, y_off, to_add=1):
+    def place_chest(room_layout, decorations_layout, grid_position, pos_x, pos_y):
+        row, col = grid_position
+        room_tile_id = room_layout[row][col]
+        decorations_tile_id = decorations_layout[row][col]
+
+        if room_tile_id != void_tile_id and room_tile_id not in wall_ids and decorations_tile_id == -1:
+            chest = Chest(pos_x * WALL_SIZE, pos_y * WALL_SIZE, 10, 0)
+            items.add(chest)
+
+            return True
+        return False
+
+    traverse_rooms_in_random_order(room_layout, decorations_layout, x_off, y_off, place_chest, to_add)
 
 def generate_level(room_map):
     furthest_room_id = find_furthest_room(room_map)
@@ -228,7 +299,6 @@ def generate_level(room_map):
                 else:
                     decorations_layout = empty_decorations_layout
 
-
             make_doorways(i, j, room_map, room_layout)
 
             # generate key if is the furthest room
@@ -237,82 +307,13 @@ def generate_level(room_map):
 
 
             # generate traps and items
-
             # search for a wall that has two free spaces in the way that flamethrower will be facing
             if room_id != 1:
-                coordinates = [(row, col) for row in range(len(room_layout)) for col in range(len(room_layout[row]))]
-                random.shuffle(coordinates)
+                generate_flamethrower(room_layout, decorations_layout, x_off, y_off)
+                generate_arrow_trap(room_layout, decorations_layout, x_off, y_off)
+                generate_spike_trap(room_layout, decorations_layout, x_off, y_off, 3)
+                generate_chest(room_layout, decorations_layout, x_off, y_off)
 
-                added_flamethrower = False
-                for row, col in coordinates:
-                    if room_layout[row][col] in wall_ids and decorations_layout[row][col] == -1:
-                        for direction in ['down', 'left', 'right']:
-                            attack_dir = find_wall_with_free_n_spaces(room_layout, decorations_layout, direction, col, row, 3)
-
-                            pos_x = col + x_off
-                            pos_y = row + y_off
-
-                            if attack_dir[0] or attack_dir[1]:
-                                flamethrower = FlamethrowerTrap(pos_x * WALL_SIZE, pos_y * WALL_SIZE, attack_dir)
-                                traps.add(flamethrower)
-
-                                decorations_layout[row][col] = 1000 # mark as occupied
-                                added_flamethrower = True
-                                break
-                    if added_flamethrower:
-                        break
-
-                added_arrowTrap = False
-                for row, col in coordinates:
-                    if room_layout[row][col] in wall_ids and decorations_layout[row][col] == -1:
-                        for direction in ['left', 'right']:
-                            # 'down' , 'left', 'right'
-                            attack_dir = find_wall_with_free_n_spaces(room_layout, decorations_layout, direction, col, row, 10)
-
-                            pos_x = col + x_off
-                            pos_y = row + y_off
-
-                            if attack_dir[0] or attack_dir[1]:
-                                arrowTrap = ArrowTrap(pos_x * WALL_SIZE, pos_y * WALL_SIZE, attack_dir)
-                                traps.add(arrowTrap)
-
-                                decorations_layout[row][col] = 1000 # mark as occupied
-                                added_arrowTrap = True
-                                break
-                    if added_arrowTrap:
-                        break
-
-                added_spike_traps = 0
-                for row, col in coordinates:
-                    if room_layout[row][col] != void_tile_id and room_layout[row][col] not in wall_ids and decorations_layout[row][col] == -1:
-                        pos_x = col + x_off
-                        pos_y = row + y_off
-
-                        spikeTrap = SpikeTrap(pos_x * WALL_SIZE, pos_y * WALL_SIZE)
-                        traps.add(spikeTrap)
-
-                        decorations_layout[row][col] = 1000  # mark as occupied
-                        added_spike_traps += 1
-
-                    if added_spike_traps >= 1:
-                        break
-
-                #generate a chest
-                added_chest = False
-                for row, col in coordinates:
-                    if room_layout[row][col] != void_tile_id and room_layout[row][col] not in wall_ids and \
-                            decorations_layout[row][col] == -1:
-                        pos_x = col + x_off
-                        pos_y = row + y_off
-
-                        chest = Chest(pos_x * WALL_SIZE, pos_y * WALL_SIZE, 10, 0)
-                        items.add(chest)
-
-                        decorations_layout[row][col] = 1000  # mark as occupied
-                        added_chest = True
-
-                    if added_chest:
-                        break
 
             for row in range(len(room_layout)):
                 for col in range(len(room_layout[row])):
