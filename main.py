@@ -193,15 +193,15 @@ class Item(pg.sprite.Sprite, Animated):
 
 class Key(Item):
     def __init__(self, x, y):
-        super().__init__("items_and_traps_animations/keys/silver", x, y, 200,
+        super().__init__("assets/items_and_traps_animations/keys/silver", x, y, 200,
              [WALL_SIZE * 0.8, WALL_SIZE * 0.8])
 
 
 class Chest(Item):
     def __init__(self, x, y, coins, health_potions):
-        Item.__init__(self, "items_and_traps_animations/chest/normal", x, y, 280, (WALL_SIZE * 0.8, WALL_SIZE * 0.8))
+        Item.__init__(self, "assets/items_and_traps_animations/chest/normal", x, y, 280, (WALL_SIZE * 0.8, WALL_SIZE * 0.8))
 
-        self.open_chest_images = load_images_from_folder("items_and_traps_animations/chest/open")
+        self.open_chest_images = load_images_from_folder("assets/items_and_traps_animations/chest/open")
         self.coins = coins
         self.health_potions = health_potions
         self.opened = False
@@ -209,7 +209,7 @@ class Chest(Item):
 
     def update(self, *args, **kwargs):
         if self.opened and self.cur_frame == self.last_frame and not self.added_visual:
-            visuals.add(NotificationVisual(load_images_from_folder("items_and_traps_animations/coin"), self.rect.move(-WALL_SIZE * 0.1, -60), True, 1600, iterations=3))
+            visuals.add(NotificationVisual(load_images_from_folder("assets/items_and_traps_animations/coin"), self.rect.move(-WALL_SIZE * 0.1, -60), True, 1600, iterations=3))
             player.coins += random.randint(10, 25)
             self.added_visual = True
         elif not self.added_visual:
@@ -249,9 +249,9 @@ class FlamethrowerTrap(Trap):
             x += WALL_SIZE
 
         if attack_dir[0]:
-            images_path = "items_and_traps_animations/flamethrower_sideways"
+            images_path = "assets/items_and_traps_animations/flamethrower_sideways"
         else:
-            images_path = "items_and_traps_animations/flamethrower_front"
+            images_path = "assets/items_and_traps_animations/flamethrower_front"
 
         rotate = 180 if attack_dir[0] == -1 else 0
 
@@ -279,9 +279,9 @@ class ArrowTrap(Trap):
         size = ((abs(attack_dir[0]) + 1) * WALL_SIZE, (abs(attack_dir[1]) + 1) * WALL_SIZE)
 
         if attack_dir[0]:
-            images_path = "items_and_traps_animations/arrow_horizontal"
+            images_path = "assets/items_and_traps_animations/arrow_horizontal"
         else:
-            images_path = "items_and_traps_animations/arrow_vertical"
+            images_path = "assets/items_and_traps_animations/arrow_vertical"
 
         if attack_dir[0] == -1:
             x -= WALL_SIZE
@@ -303,10 +303,10 @@ class ArrowTrap(Trap):
             new_arrow.rect = arrow_rect
 
             if self.attack_dir[0]:
-                image_path = "arrow_horizontal.png"
+                image_path = "assets/arrow_horizontal.png"
                 new_arrow.rect.y += (CHARACTER_SIZE - arrow_height) // 2
             else:
-                image_path = "arrow_vertical.png"
+                image_path = "assets/arrow_vertical.png"
 
             new_arrow.image = pg.transform.scale(pg.image.load(image_path), (arrow_width, arrow_height))
             new_arrow.image = pg.transform.rotate(new_arrow.image, 180 if self.attack_dir[0] == 1 else 0)
@@ -322,7 +322,7 @@ class ArrowTrap(Trap):
 class SpikeTrap(Trap):
     def __init__(self, x, y):
         size = (WALL_SIZE * 0.8, WALL_SIZE * 0.8)
-        images_path = "items_and_traps_animations/peaks"
+        images_path = "assets/items_and_traps_animations/peaks"
 
         Trap.__init__(self, images_path, x + WALL_SIZE * 0.1, y + WALL_SIZE * 0.1, 50, 1500, attack_dir, size)
         self.spikes_up_time = 600
@@ -342,7 +342,7 @@ class SpikeTrap(Trap):
 
 class Enemy(Character):
     def __init__(self, x, y):
-        super().__init__(x, y, "skeleton_enemy_1")
+        super().__init__(x, y, "assets/skeleton_enemy_1")
         self.attack_dir = None
         self.health = 100
         self.full_health = 100
@@ -409,7 +409,7 @@ class Enemy(Character):
                 self.about_to_attack_time = 0
         elif self.in_line_of_sight(player_rect, obstacles):
             if self.last_known_player_position is None and self.spotted_time is None:
-                visuals.add(NotificationVisual(load_images_from_folder("effects/spotted"), self.rect.move(0, -60)))
+                visuals.add(NotificationVisual(load_images_from_folder("assets/effects/spotted"), self.rect.move(0, -60)))
                 self.flip_model_on_move(player_rect.x - self.rect.x)
                 self.spotted_time = pg.time.get_ticks()
 
@@ -519,7 +519,7 @@ class PlayerUpgradeItem(Item):
 class MerchantItem(Item, ActionObject):
     def __init__(self, item, price):
         self.item_to_sell = item
-        Item.__init__(self, "items_and_traps_animations/mini_chest", item.rect.x, item.rect.y, item.frame_duration, item.rect.size)
+        Item.__init__(self, "assets/items_and_traps_animations/mini_chest", item.rect.x, item.rect.y, item.frame_duration, item.rect.size)
         ActionObject.__init__(self, self.rect, self.sell, CHARACTER_SIZE)
 
         self.images = item.images
@@ -537,11 +537,11 @@ class MerchantItem(Item, ActionObject):
 
 class Merchant(Character):
     def __init__(self, start_x, start_y):
-        Character.__init__(self, start_x, start_y, "merchant")
+        Character.__init__(self, start_x, start_y, "assets/merchant")
 
         it1 = MerchantItem(Key(self.rect.x - 2 * WALL_SIZE, start_y + self.rect.height + 20), 5)
         it2 = MerchantItem(Key(self.rect.x, start_y + self.rect.height + 20), 0)
-        it3 = MerchantItem(PlayerUpgradeItem("items_and_traps_animations/flag", self.rect.x + 2 * WALL_SIZE, start_y + self.rect.height + 20, "movement_speed", 2), 0)
+        it3 = MerchantItem(PlayerUpgradeItem("assets/items_and_traps_animations/flag", self.rect.x + 2 * WALL_SIZE, start_y + self.rect.height + 20, "movement_speed", 2), 0)
 
 
 
@@ -564,14 +564,14 @@ class Merchant(Character):
             item.update()
 
             if item.bought:
-                new_item = MerchantItem(Item("items_and_traps_animations/mini_chest", 0, 0, 500, [item.rect.width, item.rect.height]), -1)
+                new_item = MerchantItem(Item("assets/items_and_traps_animations/mini_chest", 0, 0, 500, [item.rect.width, item.rect.height]), -1)
                 new_item.rect = item.rect
                 self.items_to_sell[i] = new_item
 
 
 class Player(Character):
     def __init__(self, start_x, start_y):
-        super().__init__(start_x, start_y, "player_character")
+        super().__init__(start_x, start_y, "assets/player_character")
         self.dest_x = self.rect.x
         self.dest_y = self.rect.y
         self.coins = 0
@@ -581,15 +581,15 @@ class Player(Character):
         self.dashing = False
         self.last_dash_time = pg.time.get_ticks()
         self.dash_cooldown = 200
-        self.dash_animation_images = load_images_from_folder("effects/dash")
-        self.move_animation_images = load_images_from_folder("effects/step")
+        self.dash_animation_images = load_images_from_folder("assets/effects/dash")
+        self.move_animation_images = load_images_from_folder("assets/effects/step")
         self.last_move_animation = pg.time.get_ticks()
         self.move_direction = [1, 0]
         self.current_dash_length = 0
         self.goal_dash_length = 100
 
-        self.normal_images = load_images_from_folder("player_character")
-        self.hurt_images = load_images_from_folder("player_character_hurt")
+        self.normal_images = load_images_from_folder("assets/player_character")
+        self.hurt_images = load_images_from_folder("assets/player_character_hurt")
         self.harm_animation_duration = 200
         self.harm_animation_start_time = pg.time.get_ticks() - self.harm_animation_duration * 2
         self.max_flash_count = 5
@@ -811,12 +811,12 @@ def connect_rooms(rooms):
     return map
 
 
-heart_image = pg.transform.scale(pg.image.load('heart.png'), (30, 28))
-coin_images = load_tileset("coin.png", 13, 13)
+heart_image = pg.transform.scale(pg.image.load('assets/heart.png'), (30, 28))
+coin_images = load_tileset("assets/coin.png", 13, 13)
 coin_animated = Animated(coin_images, (30, 30), 200)
-key_images = load_images_from_folder("items_and_traps_animations/keys/silver_resized")
+key_images = load_images_from_folder("assets/items_and_traps_animations/keys/silver_resized")
 key_animated = Animated(key_images, (30, 22), 200)
-font = pg.font.Font("retro_font.ttf", 22)
+font = pg.font.Font("assets/retro_font.ttf", 22)
 
 
 def display_health(health):
@@ -972,11 +972,11 @@ items = pg.sprite.Group()
 
 room_tile_maps = []
 for i in range(1, 7):
-    structure_tiles = convert_csv_to_2d_list(csv_file="rooms/room" + str(i) + "_l1.csv")
-    decoration_tiles = convert_csv_to_2d_list(csv_file="rooms/room" + str(i) + "_l2.csv")
+    structure_tiles = convert_csv_to_2d_list(csv_file="assets/rooms/room" + str(i) + "_l1.csv")
+    decoration_tiles = convert_csv_to_2d_list(csv_file="assets/rooms/room" + str(i) + "_l2.csv")
     room_tile_maps.append([structure_tiles, decoration_tiles])
 
-tiles_images = load_tileset("tileset.png", 16, 16)
+tiles_images = load_tileset("assets/tileset.png", 16, 16)
 ROOM_WIDTH = len(room_tile_maps[0][0][0])
 ROOM_HEIGHT = len(room_tile_maps[0][0])
 
@@ -1212,11 +1212,11 @@ for i in range(len(room_map)):
 
                     if 0 <= id < len(tiles_images):
                         animations_images_data = {
-                            74: ["items_and_traps_animations/flag", 350],
-                            93: ["items_and_traps_animations/candlestick_1", 250],
-                            95: ["items_and_traps_animations/candlestick_2", 250],
-                            90: ["items_and_traps_animations/torch_front", 250],
-                            91: ["items_and_traps_animations/torch_sideways", 250],
+                            74: ["assets/items_and_traps_animations/flag", 350],
+                            93: ["assets/items_and_traps_animations/candlestick_1", 250],
+                            95: ["assets/items_and_traps_animations/candlestick_2", 250],
+                            90: ["assets/items_and_traps_animations/torch_front", 250],
+                            91: ["assets/items_and_traps_animations/torch_sideways", 250],
                         }
 
                         if id in animations_images_data:
@@ -1380,13 +1380,13 @@ while running:
                         testedChar.health -= dmg
                         if isinstance(testedChar, Enemy) and testedChar.health <= 0:
                             characters.remove(testedChar)
-                            images = load_images_from_folder("effects/explosion")
+                            images = load_images_from_folder("assets/effects/explosion")
                             visuals.add(Visual(images, testedChar.rect.inflate(20, 20), pg.time.get_ticks(), 400))
                     print('hit')
 
             char.attacks.remove(attack)
 
-            images = load_images_from_folder("effects/slash_attack")
+            images = load_images_from_folder("assets/effects/slash_attack")
             attackVisual = Visual(images, attackRect, attack['start_time'], attack['duration'], attack['flipped_x'], attack['flipped_y'])
 
             visuals.add(attackVisual)
