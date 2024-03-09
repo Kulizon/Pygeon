@@ -246,7 +246,6 @@ class Enemy(Character):
 
         self.spotted_time = None
         self.spotted_wait_duration = 500
-        self.just_spotted = False
 
     def change_position(self, move_x, move_y, obstacles):
         if not self.is_colliding_with_walls(move_x, move_y, obstacles):
@@ -302,16 +301,13 @@ class Enemy(Character):
                 self.attack_dir = None
                 self.about_to_attack_time = 0
         elif self.in_line_of_sight(player_rect, obstacles, False, camera):
-            if self.just_spotted:
-                self.last_known_player_position = (player_rect.x, player_rect.y)
+            if self.last_known_player_position is None and self.spotted_time is None:
                 visuals.add(NotificationVisual(load_images_from_folder("assets/effects/spotted"), self.rect.move(0, -60)))
                 self.flip_model_on_move(player_rect.x - self.rect.x)
                 self.spotted_time = pg.time.get_ticks()
-                self.just_spotted = True
-
-            self.just_spotted = False
 
             if self.spotted_time and pg.time.get_ticks() - self.spotted_time < self.spotted_wait_duration:
+                self.last_known_player_position = (player_rect.x, player_rect.y)
                 return
 
             self.spotted_time = None
