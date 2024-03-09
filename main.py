@@ -90,7 +90,7 @@ while running:
     dy = 1 if keys[pg.K_w] else -1 if keys[pg.K_s] else 0
 
     if dx != 0 or dy != 0:
-        player.move_player(dx, -dy, walls)
+        player.move_player(dx, -dy)
 
     screen.fill("#25141A")
 

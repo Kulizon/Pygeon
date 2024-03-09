@@ -109,7 +109,6 @@ class Player(Character):
         self.number_of_keys = 0
 
     def update(self, camera, *args, **kwargs):
-        print(self.rect.x, camera.rect.x)
         super().update(camera)
         self.update_dash()
 
@@ -142,6 +141,7 @@ class Player(Character):
         obstacles = walls
         self.collider.update(self.rect)
 
+        print(self.dashing, ignore_dash_check)
         if self.dashing and not ignore_dash_check:
             return
 
@@ -164,6 +164,8 @@ class Player(Character):
         moved = True
         self.move_direction = (0 if dx == 0 else math.copysign(1, dx), 0 if dy == 0 else math.copysign(1, dy))
 
+        dx = math.copysign(math.ceil(abs(dx)), dx)
+        dy = math.copysign(math.ceil(abs(dy)), dy)
         new_rect = self.collider.collision_rect.move(dx, dy)
 
         is_collision = False
@@ -276,8 +278,8 @@ class Enemy(Character):
         dx *= self.speed
         dy *= self.speed
 
-        move_x = math.copysign(max(1, abs(dx)), dx)
-        move_y = math.copysign(max(1, abs(dy)), dy)
+        move_x = math.copysign(math.ceil(abs(dx)), dx)
+        move_y = math.copysign(math.ceil(abs(dy)), dy)
 
         self.flip_model_on_move(dx)
 
