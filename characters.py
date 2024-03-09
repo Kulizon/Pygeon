@@ -246,6 +246,7 @@ class Enemy(Character):
 
         self.spotted_time = None
         self.spotted_wait_duration = 500
+        self.just_spotted = False
 
     def change_position(self, move_x, move_y, obstacles):
         if not self.is_colliding_with_walls(move_x, move_y, obstacles):
@@ -254,10 +255,10 @@ class Enemy(Character):
             return True
         else:
             # fix bug where enemy gets stuck in a wall
-            if not self.is_colliding_with_walls(math.copysign(max(1, abs(move_x)), move_x), 0, obstacles):
+            if not self.is_colliding_with_walls(move_x, 0, obstacles):
                 self.rect.x += move_x
                 return True
-            elif not self.is_colliding_with_walls(0, math.copysign(max(1, abs(move_y)), move_y), obstacles):
+            elif not self.is_colliding_with_walls(0, move_y, obstacles):
                 self.rect.y += move_y
                 return True
 
@@ -283,7 +284,7 @@ class Enemy(Character):
 
         moved = self.change_position(move_x, move_y, obstacles)
 
-        if distance <= 2 or not moved:
+        if distance <= 4 or not moved:
             self.last_known_player_position = None
             self.roam_position = None
             self.last_roam_time = pg.time.get_ticks()
@@ -301,10 +302,14 @@ class Enemy(Character):
                 self.attack_dir = None
                 self.about_to_attack_time = 0
         elif self.in_line_of_sight(player_rect, obstacles, False, camera):
-            if self.last_known_player_position is None and self.spotted_time is None:
+            if self.just_spotted:
+                self.last_known_player_position = (player_rect.x, player_rect.y)
                 visuals.add(NotificationVisual(load_images_from_folder("assets/effects/spotted"), self.rect.move(0, -60)))
                 self.flip_model_on_move(player_rect.x - self.rect.x)
                 self.spotted_time = pg.time.get_ticks()
+                self.just_spotted = True
+
+            self.just_spotted = False
 
             if self.spotted_time and pg.time.get_ticks() - self.spotted_time < self.spotted_wait_duration:
                 return
