@@ -2,10 +2,9 @@ import pygame as pg
 from copy import deepcopy
 
 from shared import WALL_SIZE, CHARACTER_SIZE, characters, items, traps, visuals, decorations, walls, SCREEN_WIDTH, \
-    SCREEN_HEIGHT, ground
+    SCREEN_HEIGHT, ground, screen, Camera
 
 pg.init()
-screen = pg.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 
 
 from characters import Player, Enemy, Merchant
@@ -28,28 +27,7 @@ for y, row in enumerate(discovered_mini_map):
 
 map_width_px, map_height_px = generate_level(room_map)
 
-
-
-class Camera:
-    def __init__(self, width, height):
-        self.rect = pg.Rect(0, 0, width, height)
-
-        self.width = width
-        self.height = height
-        self.initial_width = width
-        self.initial_height = height
-
-    def update(self, target):
-        x = -target.rect.x + (SCREEN_WIDTH // 2)
-        y = -target.rect.y + (SCREEN_HEIGHT // 2)
-
-        x = min(0, x)
-        y = min(0, y)
-        x = max(-(self.width - SCREEN_WIDTH), x)
-        y = max(-(self.height - SCREEN_HEIGHT), y)
-
-        self.rect = pg.Rect(x, y, self.width, self.height)
-
+camera = Camera(map_width_px, map_height_px)
 
 
 player = Player(map_width_px//2 - CHARACTER_SIZE, map_height_px//2 - CHARACTER_SIZE)
@@ -57,8 +35,6 @@ merchant = Merchant(map_width_px//2 - CHARACTER_SIZE, map_height_px//2 - 220 - C
 ch1 = Enemy(map_width_px//2, map_height_px//2 + 250)
 
 characters.add(player, ch1, merchant)
-
-camera = Camera(map_width_px, map_height_px)
 
 current_cell = room_map[int(player.rect.y // WALL_SIZE // 16)][int(player.rect.x // WALL_SIZE // 16)]
 defeat_timer_start = pg.time.get_ticks()
@@ -224,13 +200,13 @@ while running:
                     discovered_mini_map[y][x] = new_cell
 
     current_cell = new_cell
-    display_ui(screen, player.coins, player.health, discovered_mini_map, current_cell, player.number_of_keys, defeat_timer_seconds)
+    display_ui(player.coins, player.health, discovered_mini_map, current_cell, player.number_of_keys, defeat_timer_seconds)
 
     visuals.update()
     decorations.update()
     traps.update(player)
     items.update(player)
-    characters.update(walls, player.rect)
+    characters.update(camera, player.rect)
 
     pg.display.flip()
     clock.tick(60)

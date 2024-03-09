@@ -1,7 +1,7 @@
 import math
 
 import pygame as pg
-from shared import WALL_SIZE, CHARACTER_SIZE
+from shared import WALL_SIZE, CHARACTER_SIZE, screen
 import csv
 import os
 
@@ -127,3 +127,19 @@ class ActionObject:
             self.action_to_perform(player)
             return True
         return False
+
+
+class Collider():
+    def __init__(self, offset, collision_size):
+        self.offset = offset
+        self.collision_size = collision_size
+        self.collision_rect = (0, 0, collision_size[0], collision_size[1])
+
+    def update(self, rect, camera=None):
+
+        self.collision_rect = pg.Rect(rect.x + self.offset[0], rect.y + self.offset[1], self.collision_size[0], self.collision_size[1])
+        if camera:
+            pg.draw.rect(screen, (255, 255, 0), self.collision_rect.move(camera.rect.x, camera.rect.y))
+
+
+

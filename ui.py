@@ -1,6 +1,6 @@
 import math
 
-from shared import SCREEN_WIDTH, SCREEN_HEIGHT
+from shared import SCREEN_WIDTH, SCREEN_HEIGHT, screen
 import pygame as pg
 from shared import font
 from utility import Animated, load_images_from_folder, load_tileset
@@ -34,19 +34,19 @@ def trim_matrix(matrix):
 
     return trimmed_matrix
 
-def display_health(screen, health):
+def display_health(health):
     for i in range(health):
         screen.blit(heart_image, (10 + i * 40, 10))
 
 
-def display_coins(screen, coins):
+def display_coins(coins):
     screen.blit(coin_animated.image, (10, 50))
     text = font.render("0" * (3 - int(math.log10(coins+1))) + str(coins), True, (255, 255, 255))
     screen.blit(text, (50, 52))
     coin_animated.animate_new_frame()
 
 
-def display_full_map(screen, map, current_cell):
+def display_full_map(map, current_cell):
     gap = 5
     cell_size = 40
     map = trim_matrix(map)
@@ -60,7 +60,7 @@ def display_full_map(screen, map, current_cell):
     bg_width = max(400, map_width + 100)
     bg_height = max(400, map_height + 100)
 
-    pg.draw.rect(screen, (0, 0, 0), ((SCREEN_WIDTH - bg_width) // 2, (SCREEN_HEIGHT - bg_height) // 2, bg_width, bg_width))
+    pg.draw.rect(screen,(0, 0, 0), ((SCREEN_WIDTH - bg_width) // 2, (SCREEN_HEIGHT - bg_height) // 2, bg_width, bg_width))
 
     for y, row in enumerate(map):
         for x, cell in enumerate(row):
@@ -71,7 +71,7 @@ def display_full_map(screen, map, current_cell):
             pg.draw.rect(screen, color, (display_x, display_y, cell_size, cell_size))
 
 
-def display_mini_map(screen, map, current_cell):
+def display_mini_map(map, current_cell):
     gap = 5
     screen_gap = 15
     mini_map_size = 140
@@ -114,7 +114,7 @@ def display_mini_map(screen, map, current_cell):
             color = (255, 0, 0) if cell_value == current_cell else (0, 255, 0) if cell_value != 0 else (0, 0, 0)
             pg.draw.rect(screen, color, (display_x, display_y, cell_width, cell_height))
 
-def display_keys(screen, number_of_keys):
+def display_keys(number_of_keys):
     screen.blit(key_animated.image, (10, 92))
 
     text = font.render(str(number_of_keys), True, (255, 255, 255))
@@ -122,7 +122,7 @@ def display_keys(screen, number_of_keys):
 
     key_animated.animate_new_frame()
 
-def display_timer(screen, timer_seconds):
+def display_timer(timer_seconds):
     mini_map_size = 140
     screen_gap = 15
 
@@ -140,10 +140,10 @@ def display_timer(screen, timer_seconds):
     screen.blit(text, (SCREEN_WIDTH - text.get_width() - screen_gap, mini_map_size + screen_gap + text.get_height()))
 
 
-def display_ui(screen, coins, health, mini_map, current_cell, number_of_keys, timer_seconds):
-    display_health(screen, health)
-    display_coins(screen, coins)
-    display_keys(screen, number_of_keys)
-    display_timer(screen, timer_seconds)
-    display_mini_map(screen, mini_map, current_cell)
-    #display_full_map(screen, mini_map, current_cell)
+def display_ui(coins, health, mini_map, current_cell, number_of_keys, timer_seconds):
+    display_health(health)
+    display_coins(coins)
+    display_keys(number_of_keys)
+    display_timer(timer_seconds)
+    display_mini_map(mini_map, current_cell)
+    #display_full_map(mini_map, current_cell)
