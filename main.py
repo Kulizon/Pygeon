@@ -1,55 +1,50 @@
 import pygame as pg
-from copy import deepcopy
 
-from shared import WALL_SIZE, CHARACTER_SIZE, characters, items, traps, visuals, decorations, walls, SCREEN_WIDTH, \
-    SCREEN_HEIGHT, ground, screen, Camera
-
-pg.init()
-
+from game import Map, Game
+from shared import CHARACTER_SIZE, characters, items, traps, visuals, decorations, walls, \
+ ground, screen
 
 from characters import Player, Enemy, Merchant
-from map_generation import connect_rooms, generate_level
-from utility import Animated, Visual, load_images_from_folder, load_tileset, convert_csv_to_2d_list
-from items import Chest, Key, Item
-from traps import Trap, ArrowTrap, FlamethrowerTrap, SpikeTrap
+from utility import Visual, load_images_from_folder, ActionObject, Camera
+from items import Chest
+from traps import SpikeTrap
 from ui import display_ui, trim_matrix
 
+
+pg.init()
 clock = pg.time.Clock()
+gmap = None
+game = None
 
-rooms = [i+1 for i in range(10)]
-room_map = connect_rooms(rooms)
-mini_map = trim_matrix(room_map)
-discovered_mini_map = deepcopy(mini_map)
-for y, row in enumerate(discovered_mini_map):
-    for x, el in enumerate(row):
-        if el != 1:
-            discovered_mini_map[y][x] = 0
+def generate_new_level():
+    game_objs_grps = [ground, walls, decorations, items, characters, traps, visuals]
+    for grp in game_objs_grps:
+        grp.empty()
 
-map_width_px, map_height_px = generate_level(room_map)
+    global gmap
+    gmap = Map()
 
-camera = Camera(map_width_px, map_height_px)
+    global game
+    game = Game(gmap)
 
 
-player = Player(map_width_px//2 - CHARACTER_SIZE, map_height_px//2 - CHARACTER_SIZE)
-merchant = Merchant(map_width_px//2 - CHARACTER_SIZE, map_height_px//2 - 220 - CHARACTER_SIZE)
-ch1 = Enemy(map_width_px//2, map_height_px//2 + 250)
+generate_new_level()
 
-characters.add(player, ch1, merchant)
-
-current_cell = room_map[int(player.rect.y // WALL_SIZE // 16)][int(player.rect.x // WALL_SIZE // 16)]
-defeat_timer_start = pg.time.get_ticks()
 
 running = True
 while running:
-    defeat_timer_seconds = 600 - (pg.time.get_ticks() - defeat_timer_start) // 1000
+    defeat_timer_seconds = 600 - (pg.time.get_ticks() - game.defeat_timer_start) // 1000
 
     fps = round(clock.get_fps())
-    print(fps)
 
     action_objects = []
     for char in characters:
         if isinstance(char, Merchant):
             action_objects += char.items_to_sell
+
+    for item in items:
+        if issubclass(item.__class__, ActionObject):
+            action_objects.append(item)
 
 
     for event in pg.event.get():
@@ -62,7 +57,7 @@ while running:
 
             if keys[pg.K_e]:
                 for obj in action_objects:
-                    performed = obj.perform_action(player)
+                    performed = obj.perform_action(game.player)
 
                     if performed:
                         break
@@ -79,10 +74,10 @@ while running:
                 elif event.key == pg.K_LEFT:
                     direction = [-1, 0]
 
-                player.slash_attack(direction)
+                game.player.slash_attack(direction)
 
             if keys[pg.K_SPACE]:
-                player.dash()
+                game.player.dash()
 
     keys = pg.key.get_pressed()
 
@@ -90,7 +85,7 @@ while running:
     dy = 1 if keys[pg.K_w] else -1 if keys[pg.K_s] else 0
 
     if dx != 0 or dy != 0:
-        player.move_player(dx, -dy)
+        game.player.move_player(dx, -dy)
 
     screen.fill("#25141A")
 
@@ -105,29 +100,28 @@ while running:
         else:
             higher_order_traps.append(trap)
 
-
-    game_objs_groups = [ground, walls, decorations, spikes, items, characters, higher_order_traps, visuals, arrows]
-    for group in game_objs_groups:
+    game_objs_grps = [ground, walls, decorations, spikes, items, characters, higher_order_traps, visuals, arrows]
+    for group in game_objs_grps:
         for obj in group:
-            screen.blit(obj.image, (obj.rect.x + camera.rect.x, obj.rect.y + camera.rect.y))
+            screen.blit(obj.image, (obj.rect.x + game.camera.rect.x, obj.rect.y + game.camera.rect.y))
 
             if isinstance(obj, Merchant):
-                obj.render_items(camera, player, screen)
+                obj.render_items(game.camera, game.player, screen)
 
-    camera.update(player)
+    game.camera.update(game.player)
 
     for trap in traps:
-        if player.rect.colliderect(trap.rect) and trap.damage > 0:
-            if isinstance(trap, SpikeTrap) and player.rect.bottom - CHARACTER_SIZE >= trap.rect.top:
+        if game.player.rect.colliderect(trap.rect) and trap.damage > 0:
+            if isinstance(trap, SpikeTrap) and game.player.rect.bottom - CHARACTER_SIZE >= trap.rect.top:
                 continue
 
-            player.take_damage(trap.damage)
+            game.player.take_damage(trap.damage)
             trap.already_hit = True
 
         if hasattr(trap, 'arrows'):
             for arrow in trap.arrows:
-                if arrow.rect.colliderect(player.rect):
-                    player.take_damage(1)
+                if arrow.rect.colliderect(game.player.rect):
+                    game.player.take_damage(1)
                     trap.already_hit = True
                     trap.arrows.remove(arrow)
                 if any(arrow.rect.colliderect(wall) for wall in walls):
@@ -137,10 +131,9 @@ while running:
     for item in items:
         if isinstance(item, Chest):
             chests.append(item)
-        else:
-            if item.rect.colliderect(player.rect):
-                player.add_item(item)
-                item.remove(items)
+        elif item.pickable and item.rect.colliderect(game.player.rect):
+            game.player.add_item(item)
+            item.remove(items)
 
     for char in characters:
         # display health bar
@@ -149,8 +142,8 @@ while running:
             health_bar_height = 10
             current_health_length = (char.health / char.full_health) * health_bar_length
 
-            pos_x = char.rect.x - (health_bar_length - CHARACTER_SIZE) // 2 + camera.rect.x
-            pos_y = char.rect.y - 14 - health_bar_height // 2 + camera.rect.y
+            pos_x = char.rect.x - (health_bar_length - CHARACTER_SIZE) // 2 + game.camera.rect.x
+            pos_y = char.rect.y - 14 - health_bar_height // 2 + game.camera.rect.y
 
             pg.draw.rect(screen, (0, 0, 0), (pos_x, pos_y, health_bar_length, health_bar_height))
             pg.draw.rect(screen, (255, 0, 0), (pos_x, pos_y, current_health_length, health_bar_height))
@@ -164,15 +157,15 @@ while running:
             attackRect.x = dest[0]
             attackRect.y = dest[1]
 
-            if char == player:
+            if char == game.player:
                 for chest in chests:
                     if chest.rect.colliderect(attackRect):
                         chest.open()
 
             for testedChar in characters:
                 if attackRect.colliderect(testedChar) and testedChar != char:
-                    if testedChar == player:
-                        player.take_damage(1)
+                    if testedChar == game.player:
+                        game.player.take_damage(1)
                     else:
                         testedChar.health -= dmg
                         if isinstance(testedChar, Enemy) and testedChar.health <= 0:
@@ -189,24 +182,14 @@ while running:
             visuals.add(attackVisual)
 
 
-    wx = len(room_map[0]) * 16
-    wy = len(room_map) * 16
-
-    new_cell = room_map[int(player.rect.y // WALL_SIZE // 16)][int(player.rect.x // WALL_SIZE // 16)]
-    if current_cell != new_cell:
-        for y, row in enumerate(mini_map):
-            for x, el in enumerate(row):
-                if el == new_cell:
-                    discovered_mini_map[y][x] = new_cell
-
-    current_cell = new_cell
-    display_ui(player.coins, player.health, discovered_mini_map, current_cell, player.number_of_keys, defeat_timer_seconds)
+    display_ui(game.player.coins, game.player.health, gmap.discovered_mini_map, gmap.current_mini_map_cell, game.player.number_of_keys, defeat_timer_seconds, fps)
 
     visuals.update()
     decorations.update()
-    traps.update(player)
-    items.update(player)
-    characters.update(camera, player.rect)
+    traps.update(game.player)
+    items.update(game.player)
+    characters.update(game.camera, game.player.rect)
+    gmap.update(game.player)
 
     pg.display.flip()
     clock.tick(60)

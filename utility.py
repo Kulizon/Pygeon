@@ -1,9 +1,29 @@
 import math
 
 import pygame as pg
-from shared import WALL_SIZE, CHARACTER_SIZE, screen
+from shared import WALL_SIZE, CHARACTER_SIZE, screen, SCREEN_WIDTH, SCREEN_HEIGHT
 import csv
 import os
+
+class Camera:
+    def __init__(self, width, height):
+        self.rect = pg.Rect(0, 0, width, height)
+
+        self.width = width
+        self.height = height
+        self.initial_width = width
+        self.initial_height = height
+
+    def update(self, target):
+        x = -target.rect.x + (SCREEN_WIDTH // 2)
+        y = -target.rect.y + (SCREEN_HEIGHT // 2)
+
+        x = min(0, x)
+        y = min(0, y)
+        x = max(-(self.width - SCREEN_WIDTH), x)
+        y = max(-(self.height - SCREEN_HEIGHT), y)
+
+        self.rect = pg.Rect(x, y, self.width, self.height)
 
 def load_images_from_folder(path):
     images = []
@@ -136,7 +156,6 @@ class Collider():
         self.collision_rect = (0, 0, collision_size[0], collision_size[1])
 
     def update(self, rect, camera=None):
-
         self.collision_rect = pg.Rect(rect.x + self.offset[0], rect.y + self.offset[1], self.collision_size[0], self.collision_size[1])
         if camera:
             pg.draw.rect(screen, (255, 255, 0), self.collision_rect.move(camera.rect.x, camera.rect.y))

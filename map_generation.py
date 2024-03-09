@@ -4,9 +4,21 @@ from copy import deepcopy
 
 from shared import WALL_SIZE, decorations, items, traps, ground, walls
 from utility import load_images_from_folder, Animated, convert_csv_to_2d_list, load_tileset
-from items import Key, Chest
+from items import Key, Chest, Trapdoor
 from traps import FlamethrowerTrap, ArrowTrap, SpikeTrap
 
+room_tile_maps = []
+for i in range(1, 7):
+    structure_tiles = convert_csv_to_2d_list(csv_file="assets/rooms/room" + str(i) + "_l1.csv")
+    decoration_tiles = convert_csv_to_2d_list(csv_file="assets/rooms/room" + str(i) + "_l2.csv")
+    room_tile_maps.append([structure_tiles, decoration_tiles])
+
+tiles_images = load_tileset("assets/tileset.png", 16, 16)
+room_width = len(room_tile_maps[0][0][0])
+room_height = len(room_tile_maps[0][0])
+
+wall_ids = [0, 1, 2, 3, 4, 5, 10, 15, 20, 25, 30, 35, 40, 41, 42, 43, 44, 45, 50, 51, 52, 53, 54, 55]
+void_tile_id = 78
 
 class MapTile(pg.sprite.Sprite):
     def __init__(self, image, x, y):
@@ -66,20 +78,6 @@ def connect_rooms(rooms):
                     break
     return map
 
-
-room_tile_maps = []
-for i in range(1, 7):
-    structure_tiles = convert_csv_to_2d_list(csv_file="assets/rooms/room" + str(i) + "_l1.csv")
-    decoration_tiles = convert_csv_to_2d_list(csv_file="assets/rooms/room" + str(i) + "_l2.csv")
-    room_tile_maps.append([structure_tiles, decoration_tiles])
-
-tiles_images = load_tileset("assets/tileset.png", 16, 16)
-room_width = len(room_tile_maps[0][0][0])
-room_height = len(room_tile_maps[0][0])
-
-wall_ids = [0, 1, 2, 3, 4, 5, 10, 15, 20, 25, 30, 35, 40, 41, 42, 43, 44, 45, 50, 51, 52, 53, 54, 55]
-void_tile_id = 78
-
 def is_empty_space(layout, decorations_layout, x, y):
     return (0 <= y < len(layout) and (0 <= x < len(layout[y])
             and layout[y][x] not in wall_ids
@@ -101,9 +99,6 @@ def find_wall_with_free_n_spaces(layout, decorations_layout, direction, x, y, n)
         if all(is_empty_space(layout, decorations_layout, x + i * dx, y + i * dy) for i in range(1, n + 1)):
             return directions[direction]
     return (0, 0)
-
-empty_decorations_layout = [[-1 for _ in range(room_height)] for _ in range(room_width)]
-
 
 def find_furthest_room(room_map):
     rows = len(room_map)
@@ -233,18 +228,21 @@ def generate_arrow_trap(room_layout, decorations_layout, x_off, y_off):
 
         middle_tile = room_width // 2 - 1
 
-        if row == middle_tile or row == middle_tile - 1 or col == middle_tile or col == middle_tile - 1:
+        if row == middle_tile or row == middle_tile + 1 or col == middle_tile or col == middle_tile + 1:
             return False
 
         if room_tile_id in wall_ids and decorations_tile_id == -1:
             for direction in ['down', 'left', 'right']:
                 attack_dir = find_wall_with_free_n_spaces(room_layout, decorations_layout, direction, col, row, 6)
 
+                if attack_dir[0] and room_tile_id in [1, 2, 3, 4]: # fix visual bug
+                    continue
+
                 if attack_dir[0] or attack_dir[1]:
                     arrow_trap = ArrowTrap(pos_x * WALL_SIZE, pos_y * WALL_SIZE, attack_dir)
                     traps.add(arrow_trap)
-
                     return True
+
         return False
 
     traverse_rooms_in_random_order(room_layout, decorations_layout, x_off, y_off, place_arrow_trap)
@@ -282,7 +280,8 @@ def generate_chest(room_layout, decorations_layout, x_off, y_off, to_add=1):
 
     traverse_rooms_in_random_order(room_layout, decorations_layout, x_off, y_off, place_chest, to_add)
 
-def generate_level(room_map):
+def generate_map(room_map):
+    empty_decorations_layout = [[-1 for _ in range(room_height)] for _ in range(room_width)]
     furthest_room_id = find_furthest_room(room_map)
 
     for i in range(len(room_map)):
@@ -348,6 +347,10 @@ def generate_level(room_map):
                     if decorations_tile_id in animations_images_data:
                         path, time = animations_images_data[decorations_tile_id]
                         obj = AnimatedMapTile(path, pos_x, pos_y, time)
+                    elif decorations_tile_id == 38:
+                        obj = Trapdoor(pos_x * WALL_SIZE, pos_y * WALL_SIZE)
+                        items.add(obj)
+                        continue
                     else:
                         obj = MapTile(tiles_images[decorations_tile_id], pos_x, pos_y)
 

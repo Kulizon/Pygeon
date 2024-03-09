@@ -141,7 +141,6 @@ class Player(Character):
         obstacles = walls
         self.collider.update(self.rect)
 
-        print(self.dashing, ignore_dash_check)
         if self.dashing and not ignore_dash_check:
             return
 
@@ -222,7 +221,6 @@ class Player(Character):
         visuals.add(Visual(self.dash_animation_images, self.rect.copy(), pg.time.get_ticks(), 200, not(self.flipped_x), rotate=dash_rotation))
 
     def add_item(self, item):
-
         if isinstance(item, Key):
             self.number_of_keys += 1
 
@@ -389,15 +387,15 @@ class Enemy(Character):
 
 
 class PlayerUpgradeItem(Item):
-    def __init__(self, images_path, x, y, stat, modifier):
-        super().__init__(images_path, x, y, 300, (WALL_SIZE * 0.8, WALL_SIZE * 0.8))
+    def __init__(self, images, x, y, stat, modifier):
+        super().__init__(images, x, y, 300, (WALL_SIZE * 0.8, WALL_SIZE * 0.8))
         self.stat = stat
         self.modifier = modifier
 
 class MerchantItem(Item, ActionObject):
     def __init__(self, item, price):
         self.item_to_sell = item
-        Item.__init__(self, "assets/items_and_traps_animations/mini_chest", item.rect.x, item.rect.y, item.frame_duration, item.rect.size)
+        Item.__init__(self, load_images_from_folder("assets/items_and_traps_animations/mini_chest"), item.rect.x, item.rect.y, item.frame_duration, item.rect.size)
         ActionObject.__init__(self, self.rect, self.sell, CHARACTER_SIZE)
 
         self.images = item.images
@@ -419,7 +417,7 @@ class Merchant(Character):
 
         it1 = MerchantItem(Key(self.rect.x - 2 * WALL_SIZE, start_y + self.rect.height + 20), 5)
         it2 = MerchantItem(Key(self.rect.x, start_y + self.rect.height + 20), 0)
-        it3 = MerchantItem(PlayerUpgradeItem("assets/items_and_traps_animations/flag", self.rect.x + 2 * WALL_SIZE, start_y + self.rect.height + 20, "movement_speed", 2), 0)
+        it3 = MerchantItem(PlayerUpgradeItem(load_images_from_folder("assets/items_and_traps_animations/flag"), self.rect.x + 2 * WALL_SIZE, start_y + self.rect.height + 20, "movement_speed", 2), 0)
 
         self.items_to_sell = [it1, it2, it3]
 
@@ -440,7 +438,7 @@ class Merchant(Character):
             item.update()
 
             if item.bought:
-                new_item = MerchantItem(Item("assets/items_and_traps_animations/mini_chest", 0, 0, 500, [item.rect.width, item.rect.height]), -1)
+                new_item = MerchantItem(Item(load_images_from_folder("assets/items_and_traps_animations/mini_chest"), 0, 0, 500, [item.rect.width, item.rect.height]), -1)
                 new_item.rect = item.rect
                 self.items_to_sell[i] = new_item
 

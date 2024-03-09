@@ -140,10 +140,18 @@ def display_timer(timer_seconds):
     screen.blit(text, (SCREEN_WIDTH - text.get_width() - screen_gap, mini_map_size + screen_gap + text.get_height()))
 
 
-def display_ui(coins, health, mini_map, current_cell, number_of_keys, timer_seconds):
+def display_fps(fps):
+    screen_gap = 15
+
+    text = font.render(str(fps), True, (0, 255, 0))
+    screen.blit(text, (screen_gap, SCREEN_HEIGHT - text.get_height() - screen_gap))
+
+
+def display_ui(coins, health, mini_map, current_cell, number_of_keys, timer_seconds, fps):
     display_health(health)
     display_coins(coins)
     display_keys(number_of_keys)
     display_timer(timer_seconds)
     display_mini_map(mini_map, current_cell)
     #display_full_map(mini_map, current_cell)
+    display_fps(fps)
