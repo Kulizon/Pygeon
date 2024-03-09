@@ -52,7 +52,6 @@ class Camera:
 
 
 
-
 player = Player(map_width_px//2 - CHARACTER_SIZE, map_height_px//2 - CHARACTER_SIZE)
 merchant = Merchant(map_width_px//2 - CHARACTER_SIZE, map_height_px//2 - 220 - CHARACTER_SIZE)
 ch1 = Enemy(map_width_px//2, map_height_px//2 + 250)

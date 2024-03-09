@@ -231,6 +231,11 @@ def generate_arrow_trap(room_layout, decorations_layout, x_off, y_off):
         room_tile_id = room_layout[row][col]
         decorations_tile_id = decorations_layout[row][col]
 
+        middle_tile = room_width // 2 - 1
+
+        if row == middle_tile or row == middle_tile - 1 or col == middle_tile or col == middle_tile - 1:
+            return False
+
         if room_tile_id in wall_ids and decorations_tile_id == -1:
             for direction in ['down', 'left', 'right']:
                 attack_dir = find_wall_with_free_n_spaces(room_layout, decorations_layout, direction, col, row, 6)
@@ -307,44 +312,46 @@ def generate_level(room_map):
 
 
             # generate traps and items
-            # search for a wall that has two free spaces in the way that flamethrower will be facing
             if room_id != 1:
                 generate_flamethrower(room_layout, decorations_layout, x_off, y_off)
                 generate_arrow_trap(room_layout, decorations_layout, x_off, y_off)
                 generate_spike_trap(room_layout, decorations_layout, x_off, y_off, 3)
                 generate_chest(room_layout, decorations_layout, x_off, y_off)
 
-
+            # generate sprites
             for row in range(len(room_layout)):
                 for col in range(len(room_layout[row])):
                     pos_x = col + x_off
                     pos_y = row + y_off
 
-                    id = room_layout[row][col]
-                    if id in wall_ids:
-                        walls.add(MapTile(tiles_images[id], pos_x, pos_y))
+                    room_tile_id = room_layout[row][col]
+                    decorations_tile_id = decorations_layout[row][col]
+                    if not(0 <= room_tile_id < len(tiles_images)):
+                        continue
+
+                    if room_tile_id in wall_ids:
+                        walls.add(MapTile(tiles_images[room_tile_id], pos_x, pos_y))
                     else:
-                        ground.add(MapTile(tiles_images[id], pos_x, pos_y))
+                        ground.add(MapTile(tiles_images[room_tile_id], pos_x, pos_y))
 
-                    if decorations_layout != None:
-                        id = decorations_layout[row][col]
+                    if not(0 <= decorations_tile_id < len(tiles_images)):
+                        continue
 
-                        if 0 <= id < len(tiles_images):
-                            animations_images_data = {
-                                74: ["assets/items_and_traps_animations/flag", 350],
-                                93: ["assets/items_and_traps_animations/candlestick_1", 250],
-                                95: ["assets/items_and_traps_animations/candlestick_2", 250],
-                                90: ["assets/items_and_traps_animations/torch_front", 250],
-                                91: ["assets/items_and_traps_animations/torch_sideways", 250],
-                            }
+                    animations_images_data = {
+                        74: ["assets/items_and_traps_animations/flag", 350],
+                        93: ["assets/items_and_traps_animations/candlestick_1", 250],
+                        95: ["assets/items_and_traps_animations/candlestick_2", 250],
+                        90: ["assets/items_and_traps_animations/torch_front", 250],
+                        91: ["assets/items_and_traps_animations/torch_sideways", 250],
+                    }
 
-                            if id in animations_images_data:
-                                path, time = animations_images_data[id]
-                                obj = AnimatedMapTile(path, pos_x, pos_y, time)
-                            else:
-                                obj = MapTile(tiles_images[id], pos_x, pos_y)
+                    if decorations_tile_id in animations_images_data:
+                        path, time = animations_images_data[decorations_tile_id]
+                        obj = AnimatedMapTile(path, pos_x, pos_y, time)
+                    else:
+                        obj = MapTile(tiles_images[decorations_tile_id], pos_x, pos_y)
 
-                            decorations.add(obj)
+                    decorations.add(obj)
 
     map_width_px = len(room_map[0]) * WALL_SIZE * room_width
     map_height_px = len(room_map) * WALL_SIZE * room_height

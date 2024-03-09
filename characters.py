@@ -21,6 +21,7 @@ class Character(pg.sprite.Sprite, Animated):
         self.last_attack_time = pg.time.get_ticks()
         self.attack_cooldown = 0
         self.rect = self.image.get_rect(topleft=(x + (CHARACTER_SIZE * size_multiplier) // 2, y + (CHARACTER_SIZE * size_multiplier) // 2))
+
         self.attacks = []
         self.speed = 1
 
@@ -102,8 +103,6 @@ class Player(Character):
     def update(self, obstacles, *args, **kwargs):
         self.animate_new_frame()
         self.update_dash(obstacles)
-
-        print(obstacles)
 
         if self.flash_count < self.max_flash_count:
             diff = pg.time.get_ticks() - self.harm_animation_start_time
