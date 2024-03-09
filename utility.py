@@ -5,6 +5,7 @@ from shared import WALL_SIZE, CHARACTER_SIZE, screen, SCREEN_WIDTH, SCREEN_HEIGH
 import csv
 import os
 
+
 class Camera:
     def __init__(self, width, height):
         self.rect = pg.Rect(0, 0, width, height)

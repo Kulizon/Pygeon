@@ -1,9 +1,9 @@
 import random
-import pygame as pg
 from copy import deepcopy
 
+from tiles import MapTile, AnimatedMapTile
 from shared import WALL_SIZE, decorations, items, traps, ground, walls
-from utility import load_images_from_folder, Animated, convert_csv_to_2d_list, load_tileset
+from utility import convert_csv_to_2d_list, load_tileset
 from items import Key, Chest, Trapdoor
 from traps import FlamethrowerTrap, ArrowTrap, SpikeTrap
 
@@ -20,25 +20,6 @@ room_height = len(room_tile_maps[0][0])
 wall_ids = [0, 1, 2, 3, 4, 5, 10, 15, 20, 25, 30, 35, 40, 41, 42, 43, 44, 45, 50, 51, 52, 53, 54, 55]
 void_tile_id = 78
 
-class MapTile(pg.sprite.Sprite):
-    def __init__(self, image, x, y):
-        super().__init__()
-        self.image = pg.transform.scale(image, (WALL_SIZE, WALL_SIZE))
-        self.col = x
-        self.row = y
-        self.rect = self.image.get_rect(topleft=(x * WALL_SIZE, y * WALL_SIZE))
-
-class AnimatedMapTile(MapTile, Animated):
-    def __init__(self, images_path, x, y, frame_duration, flip_x=False, flip_y=False, rotate=0, size=None):
-        images = load_images_from_folder(images_path)
-
-        MapTile.__init__(self, images[0], x, y)
-        if size:
-            self.rect.size = size
-        Animated.__init__(self, images, self.rect.size, frame_duration, flip_x, flip_y, rotate)
-
-    def update(self):
-        self.animate_new_frame()
 
 
 def place_room(map, room, position):
@@ -348,9 +329,7 @@ def generate_map(room_map):
                         path, time = animations_images_data[decorations_tile_id]
                         obj = AnimatedMapTile(path, pos_x, pos_y, time)
                     elif decorations_tile_id == 38:
-                        obj = Trapdoor(pos_x * WALL_SIZE, pos_y * WALL_SIZE)
-                        items.add(obj)
-                        continue
+                        obj = Trapdoor(pos_x, pos_y)
                     else:
                         obj = MapTile(tiles_images[decorations_tile_id], pos_x, pos_y)
 

@@ -4,11 +4,11 @@ from game import Map, Game
 from shared import CHARACTER_SIZE, characters, items, traps, visuals, decorations, walls, \
  ground, screen
 
-from characters import Player, Enemy, Merchant
+from characters import Enemy, Merchant
 from utility import Visual, load_images_from_folder, ActionObject, Camera
 from items import Chest
 from traps import SpikeTrap
-from ui import display_ui, trim_matrix
+from ui import display_ui
 
 
 pg.init()
@@ -42,9 +42,9 @@ while running:
         if isinstance(char, Merchant):
             action_objects += char.items_to_sell
 
-    for item in items:
-        if issubclass(item.__class__, ActionObject):
-            action_objects.append(item)
+    for tile in decorations:
+        if issubclass(tile.__class__, ActionObject):
+            action_objects.append(tile)
 
 
     for event in pg.event.get():

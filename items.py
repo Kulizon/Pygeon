@@ -1,7 +1,8 @@
 import random
 import pygame as pg
 
-from shared import WALL_SIZE, visuals, walls, characters, decorations, traps, items
+from tiles import MapTile
+from shared import WALL_SIZE, visuals
 from utility import load_images_from_folder, NotificationVisual, Animated, ActionObject
 
 
@@ -47,14 +48,13 @@ class Chest(Item):
             self.opened = True
 
 
-
-class Trapdoor(Item, ActionObject):
+class Trapdoor(MapTile, ActionObject):
     def __init__(self, x, y):
-        Item.__init__(self, load_images_from_folder("assets/items_and_traps_animations/chest/open"), x, y, 280,
-                      (WALL_SIZE * 0.8, WALL_SIZE * 0.8))
+        from map_generation import tiles_images
+        MapTile.__init__(self, tiles_images[38], x, y)
         ActionObject.__init__(self, self.rect, self.trapdoor_action)
 
-        self.open_trapdoor_images = load_images_from_folder("assets/items_and_traps_animations/chest/normal")
+        self.open_trapdoor_image = tiles_images[39]
         self.opened = False
 
     def trapdoor_action(self, player):
@@ -68,6 +68,6 @@ class Trapdoor(Item, ActionObject):
 
     def update(self, *args, **kwargs):
         if self.opened:
-            self.images = self.open_trapdoor_images
+            self.image = pg.transform.scale(self.open_trapdoor_image, (WALL_SIZE, WALL_SIZE))
 
 
