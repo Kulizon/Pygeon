@@ -4,7 +4,7 @@ import random
 import pygame as pg
 
 from items import Item, Key
-from shared import WALL_SIZE, CHARACTER_SIZE, characters, visuals, font, screen, walls
+from shared import WALL_SIZE, CHARACTER_SIZE, characters, visuals, font, screen, walls, font_s
 from utility import Animated, load_images_from_folder, Visual, NotificationVisual, ActionObject, Collider
 
 
@@ -394,7 +394,7 @@ class PlayerUpgradeItem(Item):
         self.modifier = modifier
 
 class MerchantItem(Item, ActionObject):
-    def __init__(self, item, price):
+    def __init__(self, item, price, description=None):
         self.item_to_sell = item
         Item.__init__(self, load_images_from_folder("assets/items_and_traps_animations/mini_chest"), item.rect.x, item.rect.y, item.frame_duration, item.rect.size)
         ActionObject.__init__(self, self.rect, self.sell, CHARACTER_SIZE)
@@ -402,6 +402,7 @@ class MerchantItem(Item, ActionObject):
         self.images = item.images
         self.price = price
         self.bought = False
+        self.description = description
 
     def sell(self, player):
         if player.coins >= self.price and self.price >= 0:
@@ -410,7 +411,32 @@ class MerchantItem(Item, ActionObject):
             self.bought = True
             player.add_item(self.item_to_sell)
 
+    def render(self, camera, player, screen):
+        screen.blit(self.image, (self.rect.x + camera.rect.x, self.rect.y + camera.rect.y))
 
+        color = (255, 0, 0) if self.is_close(player) else (255, 255, 255)
+
+        text = font.render(str(self.price) + "$", True, color)
+        screen.blit(text, (self.rect.x + camera.rect.x, self.rect.y + camera.rect.y + self.image.get_height() + 10))
+
+
+        if self.description and self.is_close(player):
+            words = self.description.split(" ")
+            longest_word = max(self.description.split(), key=len)
+
+            box_width = font_s.render(longest_word, True, (0,0,0)).get_width()
+
+            off_x = 20
+            off_y = 20
+            pg.draw.rect(screen, (0, 0, 0), (
+                self.rect.centerx + camera.rect.x - box_width//2 - off_x//2, self.rect.y + camera.rect.y - len(words) * font_s.get_height() - off_y//2 - 20,
+                box_width + off_x, len(words) * font_s.get_height() + off_y))
+
+            for i, word in enumerate(words):
+                description_text = font_s.render(word, True, (255, 255, 255))
+
+                screen.blit(description_text, (self.rect.centerx + camera.rect.x - description_text.get_width()//2,
+                                               self.rect.y + camera.rect.y - (len(words) - i) * description_text.get_height() - 20))
 
 class Merchant(Character):
     def __init__(self, start_x, start_y):
@@ -418,19 +444,13 @@ class Merchant(Character):
 
         it1 = MerchantItem(Key(self.rect.x - 2 * WALL_SIZE, start_y + self.rect.height + 20), 5)
         it2 = MerchantItem(Key(self.rect.x, start_y + self.rect.height + 20), 0)
-        it3 = MerchantItem(PlayerUpgradeItem(load_images_from_folder("assets/items_and_traps_animations/flag"), self.rect.x + 2 * WALL_SIZE, start_y + self.rect.height + 20, "movement_speed", 2), 0)
+        it3 = MerchantItem(PlayerUpgradeItem(load_images_from_folder("assets/items_and_traps_animations/flag"), self.rect.x + 2 * WALL_SIZE, start_y + self.rect.height + 20, "movement_speed", 2), 0, description="Increase movement speed")
 
         self.items_to_sell = [it1, it2, it3]
 
     def render_items(self, camera, player, screen):
         for item in self.items_to_sell:
-
-            screen.blit(item.image, (item.rect.x + camera.rect.x, item.rect.y + camera.rect.y))
-
-            color = (255, 0, 0) if item.is_close(player) else (255, 255, 255)
-
-            text = font.render(str(item.price) + "$", True, color)
-            screen.blit(text, (item.rect.x + camera.rect.x, item.rect.y + camera.rect.y + item.image.get_height() + 10))
+            item.render(camera, player, screen)
 
     def update(self, camera, *args, **kwargs):
         super().update(camera)

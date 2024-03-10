@@ -17,7 +17,7 @@ ground = pg.sprite.Group()
 decorations = pg.sprite.Group()
 
 font = pg.font.Font("assets/retro_font.ttf", 22)
-
+font_s = pg.font.Font("assets/retro_font.ttf", 16)
 
 
 
