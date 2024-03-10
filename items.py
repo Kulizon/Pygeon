@@ -1,4 +1,6 @@
 import random
+from copy import deepcopy
+
 import pygame as pg
 
 from tiles import MapTile
@@ -59,10 +61,8 @@ class Trapdoor(MapTile, ActionObject):
 
     def trapdoor_action(self, player):
         if self.opened:
-            from main import generate_new_level
-            generate_new_level()
+            player.is_next_level = True
         elif player.number_of_keys > 0:
-            print("opened")
             self.opened = True
             player.number_of_keys -= 1
 

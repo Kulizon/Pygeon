@@ -38,13 +38,19 @@ class Map():
 
 
 class Game():
-    def __init__(self, gmap):
+    def __init__(self, gmap, current_player):
         self.camera = Camera(gmap.width_px, gmap.height_px)
         player_start_x = gmap.width_px // 2 - CHARACTER_SIZE
         player_start_y = gmap.height_px // 2 - CHARACTER_SIZE
         self.defeat_timer_start = pg.time.get_ticks()
 
-        self.player = Player(player_start_x, player_start_y)
+        if not current_player:
+            self.player = Player(player_start_x, player_start_y)
+        else:
+            self.player = current_player
+            self.player.rect.x = player_start_x
+            self.player.rect.y = player_start_y
+
         self.merchant = Merchant(gmap.width_px // 2 - CHARACTER_SIZE, gmap.height_px // 2 - 220 - CHARACTER_SIZE)
         self.ch1 = Enemy(gmap.width_px // 2, gmap.height_px // 2 + 250)
         characters.add(self.player, self.ch1, self.merchant)

@@ -4,7 +4,7 @@ from game import Map, Game
 from shared import CHARACTER_SIZE, characters, items, traps, visuals, decorations, walls, \
  ground, screen
 
-from characters import Enemy, Merchant
+from characters import Enemy, Merchant, Player
 from utility import Visual, load_images_from_folder, ActionObject, Camera
 from items import Chest
 from traps import SpikeTrap
@@ -16,20 +16,26 @@ clock = pg.time.Clock()
 gmap = None
 game = None
 
-def generate_new_level():
-    game_objs_grps = [ground, walls, decorations, items, characters, traps, visuals]
+def generate_new_level(current_player=None):
+    game_objs_grps = [ground, walls, decorations, items, traps, visuals]
     for grp in game_objs_grps:
         grp.empty()
+
+    print(current_player)
+
+    if not current_player:
+        characters.empty()
+    else:
+        characters.remove([char for char in characters.sprites() if not isinstance(char, Player)])
 
     global gmap
     gmap = Map()
 
     global game
-    game = Game(gmap)
+    game = Game(gmap, current_player)
 
 
 generate_new_level()
-
 
 running = True
 while running:
@@ -190,6 +196,10 @@ while running:
     items.update(game.player)
     characters.update(game.camera, game.player.rect)
     gmap.update(game.player)
+
+    if game.player.is_next_level:
+        game.player.is_next_level = False
+        generate_new_level(game.player)
 
     pg.display.flip()
     clock.tick(60)

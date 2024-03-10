@@ -4,7 +4,7 @@ import random
 import pygame as pg
 
 from items import Item, Key
-from shared import WALL_SIZE, CHARACTER_SIZE, characters, visuals, font, screen, walls, font_s
+from shared import WALL_SIZE, CHARACTER_SIZE, visuals, font, screen, walls, font_s
 from utility import Animated, load_images_from_folder, Visual, NotificationVisual, ActionObject, Collider
 
 
@@ -80,6 +80,7 @@ class Character(pg.sprite.Sprite, Animated):
         self.collider.update(self.rect, camera)
 
 
+
 class Player(Character):
     def __init__(self, start_x, start_y):
         super().__init__(start_x, start_y, "assets/player_character")
@@ -107,6 +108,8 @@ class Player(Character):
         self.flash_count = self.max_flash_count
 
         self.number_of_keys = 0
+
+        self.is_next_level = False
 
     def update(self, camera, *args, **kwargs):
         super().update(camera)
