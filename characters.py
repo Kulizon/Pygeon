@@ -392,29 +392,30 @@ class Enemy(Character):
 
 class PlayerUpgradeItem(Item):
     def __init__(self, images, x, y, stat, modifier):
-        super().__init__(images, x, y, 300, (WALL_SIZE * 0.8, WALL_SIZE * 0.8))
+        Item.__init__(self, images, x, y, 300, (WALL_SIZE * 0.8, WALL_SIZE * 0.8))
         self.stat = stat
         self.modifier = modifier
 
 class MerchantItem(Item, ActionObject):
     def __init__(self, item, price, description=None):
-        self.item_to_sell = item
         Item.__init__(self, load_images_from_folder("assets/items_and_traps_animations/mini_chest"), item.rect.x, item.rect.y, item.frame_duration, item.rect.size)
         ActionObject.__init__(self, self.rect, self.sell, CHARACTER_SIZE)
+        self.item_to_sell = item
 
         self.images = item.images
+        self.animate()
         self.price = price
         self.bought = False
         self.description = description
 
     def sell(self, player):
-        if player.coins >= self.price and self.price >= 0:
+        if player.coins >= self.price >= 0:
             player.coins -= self.price
 
             self.bought = True
             player.add_item(self.item_to_sell)
 
-    def render(self, camera, player, screen):
+    def render(self, camera, player):
         screen.blit(self.image, (self.rect.x + camera.rect.x, self.rect.y + camera.rect.y))
 
         color = (255, 0, 0) if self.is_close(player) else (255, 255, 255)
@@ -451,9 +452,9 @@ class Merchant(Character):
 
         self.items_to_sell = [it1, it2, it3]
 
-    def render_items(self, camera, player, screen):
+    def render_items(self, camera, player):
         for item in self.items_to_sell:
-            item.render(camera, player, screen)
+            item.render(camera, player)
 
     def update(self, camera, *args, **kwargs):
         super().update(camera)

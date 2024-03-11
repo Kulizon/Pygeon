@@ -109,7 +109,7 @@ while running:
             screen.blit(obj.image, (obj.rect.x + game.camera.rect.x, obj.rect.y + game.camera.rect.y))
 
             if isinstance(obj, Merchant):
-                obj.render_items(game.camera, game.player, screen)
+                obj.render_items(game.camera, game.player)
 
     game.camera.update(game.player)
 
