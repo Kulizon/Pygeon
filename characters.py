@@ -254,8 +254,6 @@ class Player(Character):
             if item.stat == "movement_speed":
                 self.speed *= item.modifier
 
-
-
 class Enemy(Character):
     def __init__(self, x, y):
         Character.__init__(self, x, y, load_images_from_folder("assets/skeleton_enemy_1"), CHARACTER_SIZE * 0.96)
@@ -316,17 +314,33 @@ class Enemy(Character):
             self.last_turn_around_animation_time = pg.time.get_ticks()
             self.roam_wait_time = random.randint(1500, 2500)
 
+    def launch_attack(self):
+        if self.attack_dir and pg.time.get_ticks() - self.about_to_attack_time > 500:
+            self.slash_attack(self.attack_dir, 0.8, 2)
+            self.attack_dir = None
+            self.about_to_attack_time = 0
+
+
+    def prepare_attack(self, player_rect):
+        distance_to_player = (self.rect.x - player_rect.x) ** 2 + (self.rect.y - player_rect.y) ** 2
+        if distance_to_player < 9000 and pg.time.get_ticks() - self.last_attack_time > self.attack_cooldown:
+            if abs(self.rect.x - player_rect.x) > abs((self.rect.y - player_rect.y)):
+                self.attack_dir = [math.copysign(1, player_rect.x - self.rect.x), 0]
+            else:
+                self.attack_dir = [0, math.copysign(1, self.rect.y - player_rect.y)]
+            self.about_to_attack_time = pg.time.get_ticks()
+
+    def roam(self, camera):
+        self.in_line_of_sight(pg.Rect(self.roam_position[0], self.roam_position[1], 1, 1), walls, True, camera)
+        self.move_in_direction(self.roam_position, walls)
+
     def update(self, camera, player_rect, *args, **kwargs):
         super().update(camera)
 
-        obstacles = walls
-
         if self.about_to_attack_time != 0:
-            if self.attack_dir and pg.time.get_ticks() - self.about_to_attack_time > 500:
-                self.slash_attack(self.attack_dir, 0.8, 2)
-                self.attack_dir = None
-                self.about_to_attack_time = 0
-        elif self.in_line_of_sight(player_rect, obstacles, False, camera):
+            self.launch_attack()
+        elif self.in_line_of_sight(player_rect, walls, False, camera):
+
             if self.last_known_player_position is None and self.spotted_time is None:
                 visuals.add(NotificationVisual(load_images_from_folder("assets/effects/spotted"), self.rect.move(0, -60)))
                 self.flip_model_on_move(player_rect.x - self.rect.x)
@@ -338,30 +352,15 @@ class Enemy(Character):
 
             self.spotted_time = None
 
-            self.move_in_direction((player_rect.x, player_rect.y), obstacles)
+            self.move_in_direction((player_rect.x, player_rect.y), walls)
             self.last_known_player_position = (player_rect.x, player_rect.y)
 
-            distance_to_player = (self.rect.x - player_rect.x) ** 2 + (self.rect.y - player_rect.y) ** 2
-            if distance_to_player < 9000 and pg.time.get_ticks() - self.last_attack_time > self.attack_cooldown:
-
-                if abs(self.rect.x - player_rect.x) > abs((self.rect.y - player_rect.y)):
-                    self.attack_dir = [math.copysign(1, player_rect.x - self.rect.x), 0]
-                else:
-                    self.attack_dir = [0, math.copysign(1, self.rect.y - player_rect.y)]
-
-                self.about_to_attack_time = pg.time.get_ticks()
+            self.prepare_attack(player_rect)
 
         elif self.last_known_player_position:
-            self.move_in_direction(self.last_known_player_position, obstacles)
+            self.move_in_direction(self.last_known_player_position, walls)
         elif self.roam_position:
-            roam_point = pg.Rect(self.rect)
-            roam_point.x = self.roam_position[0]
-            roam_point.y = self.roam_position[1]
-            roam_point.width = 1
-            roam_point.height = 1
-
-            self.in_line_of_sight(roam_point, obstacles, True, camera)
-            self.move_in_direction(self.roam_position, obstacles)
+            self.roam(camera)
         else:
             wait_dt = pg.time.get_ticks() - self.last_roam_time
             animation_dt = pg.time.get_ticks() - self.last_turn_around_animation_time
@@ -379,7 +378,7 @@ class Enemy(Character):
             random_point.width = 1
             random_point.height = 1
 
-            if self.in_line_of_sight(random_point, obstacles, True, camera):
+            if self.in_line_of_sight(random_point, walls, True, camera):
                 self.roam_position = (random_point.x, random_point.y)
 
         self.animate_new_frame()
