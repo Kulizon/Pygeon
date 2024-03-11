@@ -65,6 +65,7 @@ while running:
                     if performed:
                         break
 
+
             if keys[pg.K_UP] or keys[pg.K_DOWN] or keys[pg.K_RIGHT] or keys[pg.K_LEFT]:
                 direction = [0, 0]
 
@@ -87,8 +88,7 @@ while running:
     dx = 1 if keys[pg.K_d] else -1 if keys[pg.K_a] else 0
     dy = 1 if keys[pg.K_w] else -1 if keys[pg.K_s] else 0
 
-    if dx != 0 or dy != 0:
-        game.player.move_player(dx, -dy)
+    game.player.move_player(dx, -dy)
 
     screen.fill("#25141A")
 

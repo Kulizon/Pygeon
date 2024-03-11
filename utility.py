@@ -158,8 +158,8 @@ class Collider():
 
     def update(self, rect, camera=None):
         self.collision_rect = pg.Rect(rect.x + self.offset[0], rect.y + self.offset[1], self.collision_size[0], self.collision_size[1])
-        if camera:
-            pg.draw.rect(screen, (255, 255, 0), self.collision_rect.move(camera.rect.x, camera.rect.y))
+        #if camera:
+            #pg.draw.rect(screen, (255, 255, 0), self.collision_rect.move(camera.rect.x, camera.rect.y))
 
 
 

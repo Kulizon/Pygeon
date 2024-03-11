@@ -5,29 +5,40 @@ import pygame as pg
 
 from items import Item, Key
 from shared import WALL_SIZE, CHARACTER_SIZE, visuals, font, screen, walls, font_s
-from utility import Animated, load_images_from_folder, Visual, NotificationVisual, ActionObject, Collider
+from utility import Animated, load_images_from_folder, Visual, NotificationVisual, ActionObject, Collider, load_tileset
+
+player_images = load_tileset("assets/LATER_USE_USE_USE/player.png", 32, 32)
 
 
 class Character(pg.sprite.Sprite, Animated):
-    def __init__(self, x, y, images_path):
+    def __init__(self, x, y, images):
         super().__init__()
         self.health = 0
         self.full_health = 0
-        images = load_images_from_folder(images_path)
-
         size_multiplier = 0.96
 
-        Animated.__init__(self, images, (CHARACTER_SIZE * size_multiplier, CHARACTER_SIZE * size_multiplier), 400)
+        Animated.__init__(self, images, (CHARACTER_SIZE * size_multiplier, CHARACTER_SIZE * size_multiplier), 200)
         self.last_attack_time = pg.time.get_ticks()
         self.attack_cooldown = 0
         self.rect = self.image.get_rect(topleft=(x + (CHARACTER_SIZE * size_multiplier) // 2, y + (CHARACTER_SIZE * size_multiplier) // 2))
 
         self.attacks = []
         self.speed = 1
+        self.move_direction = [1, 0]
 
         off_x = 20
         off_y = 20
         self.collider = Collider((off_x//2, self.rect.height-off_y), (self.rect.width - off_x, off_y))
+
+    def get_direction_index(self):
+        if self.move_direction[0] == 1:
+            return 0
+        elif self.move_direction[0] == -1:
+            return 2
+        elif self.move_direction[1] == -1:
+            return 1
+        elif self.move_direction[1] == 1:
+            return 3
 
     def flip_model_on_move(self, dx):
         if dx < 0 and not self.flipped_x:
@@ -36,7 +47,6 @@ class Character(pg.sprite.Sprite, Animated):
         elif dx > 0 and self.flipped_x:
             self.flipped_x = False
             self.animate()
-
 
     def slash_attack(self, direction):
         if pg.time.get_ticks() - self.last_attack_time < self.attack_cooldown:
@@ -83,7 +93,7 @@ class Character(pg.sprite.Sprite, Animated):
 
 class Player(Character):
     def __init__(self, start_x, start_y):
-        super().__init__(start_x, start_y, "assets/player_character")
+        Character.__init__(self, start_x, start_y, player_images[0:4])
         self.dest_x = self.rect.x
         self.dest_y = self.rect.y
         self.coins = 0
@@ -96,11 +106,12 @@ class Player(Character):
         self.dash_animation_images = load_images_from_folder("assets/effects/dash")
         self.move_animation_images = load_images_from_folder("assets/effects/step")
         self.last_move_animation = pg.time.get_ticks()
-        self.move_direction = [1, 0]
         self.current_dash_length = 0
         self.goal_dash_length = 100
 
-        self.normal_images = load_images_from_folder("assets/player_character")
+        #self.normal_images = load_images_from_folder("assets/player_character")
+        self.idle_images = [player_images[200], player_images[210], player_images[220], player_images[230]]
+        self.walking_images = [player_images[10:18], player_images[20:28], player_images[30:38], player_images[40:48]]
         self.hurt_images = load_images_from_folder("assets/player_character_hurt")
         self.harm_animation_duration = 200
         self.harm_animation_start_time = pg.time.get_ticks() - self.harm_animation_duration * 2
@@ -122,7 +133,7 @@ class Player(Character):
                 self.images = self.hurt_images
                 self.animate()
             elif diff > self.harm_animation_duration:
-                self.images = self.normal_images
+                #self.images = self.idle_images[images[self.move_direction]]
                 self.animate()
                 self.flash_count += 1
                 self.harm_animation_start_time = pg.time.get_ticks()
@@ -144,7 +155,10 @@ class Player(Character):
         obstacles = walls
         self.collider.update(self.rect)
 
-        if self.dashing and not ignore_dash_check:
+        if (self.dashing and not ignore_dash_check) or (dx == 0 and dy == 0):
+            i = self.get_direction_index()
+            self.images = [self.idle_images[2 if i == 1 else 1 if i == 2 else i]]
+            self.animate()
             return
 
         distance = math.sqrt(dx**2 + dy**2)
@@ -164,7 +178,15 @@ class Player(Character):
         self.current_dash_length += distance * self.speed
 
         moved = True
-        self.move_direction = (0 if dx == 0 else math.copysign(1, dx), 0 if dy == 0 else math.copysign(1, dy))
+        new_move_direction = (0 if dx == 0 else math.copysign(1, dx), 0 if dy == 0 else math.copysign(1, dy))
+
+        if new_move_direction[0] != self.move_direction[0] or new_move_direction[1] != self.move_direction[1]:
+            print(123)
+            self.move_direction = new_move_direction
+            self.images = self.walking_images[self.get_direction_index()]
+
+        self.move_direction = new_move_direction
+
 
         dx = math.copysign(math.ceil(abs(dx)), dx)
         dy = math.copysign(math.ceil(abs(dy)), dy)
@@ -183,8 +205,7 @@ class Player(Character):
         if not is_collision:
             self.rect.x += dx
             self.rect.y += dy
-            if dx != 0:
-                self.flip_model_on_move(dx)
+
         else:
             # if collision occurred, try moving along each axis individually
             new_x_rect = self.collider.collision_rect.move(dx, 0)
@@ -195,7 +216,6 @@ class Player(Character):
 
             if not is_collision_along_x:
                 self.rect.x += dx
-                self.flip_model_on_move(dx)
             elif not is_collision_along_y:
                 self.rect.y += dy
             else:
@@ -214,11 +234,10 @@ class Player(Character):
             return
 
         self.current_dash_length = 0
-
         self.last_dash_time = pg.time.get_ticks()
         self.dashing = True
 
-        self.flip_model_on_move(self.move_direction[0])
+        #self.flip_model_on_move(self.move_direction[0])
 
         dash_rotation = 90 if self.move_direction[1] < 0 else -90 if self.move_direction[1] > 0 else 0
         visuals.add(Visual(self.dash_animation_images, self.rect.copy(), pg.time.get_ticks(), 200, not(self.flipped_x), rotate=dash_rotation))
@@ -235,7 +254,7 @@ class Player(Character):
 
 class Enemy(Character):
     def __init__(self, x, y):
-        super().__init__(x, y, "assets/skeleton_enemy_1")
+        super().__init__(x, y, load_images_from_folder("assets/skeleton_enemy_1"))
         self.attack_dir = None
         self.health = 100
         self.full_health = 100
@@ -387,14 +406,12 @@ class Enemy(Character):
 
 
 
-
-
-
 class PlayerUpgradeItem(Item):
     def __init__(self, images, x, y, stat, modifier):
         Item.__init__(self, images, x, y, 300, (WALL_SIZE * 0.8, WALL_SIZE * 0.8))
         self.stat = stat
         self.modifier = modifier
+
 
 class MerchantItem(Item, ActionObject):
     def __init__(self, item, price, description=None):
@@ -444,7 +461,7 @@ class MerchantItem(Item, ActionObject):
 
 class Merchant(Character):
     def __init__(self, start_x, start_y):
-        Character.__init__(self, start_x, start_y, "assets/merchant")
+        Character.__init__(self, start_x, start_y, load_images_from_folder("assets/merchant"))
 
         it1 = MerchantItem(Key(self.rect.x - 2 * WALL_SIZE, start_y + self.rect.height + 20), 5)
         it2 = MerchantItem(Key(self.rect.x, start_y + self.rect.height + 20), 0)
