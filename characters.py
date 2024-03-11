@@ -330,9 +330,18 @@ class Enemy(Character):
                 self.attack_dir = [0, math.copysign(1, self.rect.y - player_rect.y)]
             self.about_to_attack_time = pg.time.get_ticks()
 
-    def roam(self, camera):
+    def roam_to(self, camera):
         self.in_line_of_sight(pg.Rect(self.roam_position[0], self.roam_position[1], 1, 1), walls, True, camera)
         self.move_in_direction(self.roam_position, walls)
+
+    def choose_where_to_roam(self, camera):
+        random_point = pg.Rect(self.rect.move(random.randint(50, 150) * [-1, 1][random.randint(0, 1)],
+                                              random.randint(50, 150) * [-1, 1][random.randint(0, 1)]))
+        random_point.width = 1
+        random_point.height = 1
+
+        if self.in_line_of_sight(random_point, walls, True, camera):
+            self.roam_position = (random_point.x, random_point.y)
 
     def update(self, camera, player_rect, *args, **kwargs):
         super().update(camera)
@@ -360,8 +369,9 @@ class Enemy(Character):
         elif self.last_known_player_position:
             self.move_in_direction(self.last_known_player_position, walls)
         elif self.roam_position:
-            self.roam(camera)
+            self.roam_to(camera)
         else:
+            # todo: refactor like hurt animation
             wait_dt = pg.time.get_ticks() - self.last_roam_time
             animation_dt = pg.time.get_ticks() - self.last_turn_around_animation_time
 
@@ -369,17 +379,9 @@ class Enemy(Character):
                 if animation_dt < self.roam_wait_time/2:
                     self.flipped_x = not self.flipped_x
                     self.last_turn_around_animation_time = pg.time.get_ticks()
-                return
-
-            # chose random point, check if in line of sight
-            random_point = pg.Rect(self.rect)
-            random_point.x += random.randint(50, 150) * [-1, 1][random.randint(0, 1)]
-            random_point.y += random.randint(50, 150) * [-1, 1][random.randint(0, 1)]
-            random_point.width = 1
-            random_point.height = 1
-
-            if self.in_line_of_sight(random_point, walls, True, camera):
-                self.roam_position = (random_point.x, random_point.y)
+            else:
+                # chose random point, check if in line of sight
+                self.choose_where_to_roam(camera)
 
         self.animate_new_frame()
 
