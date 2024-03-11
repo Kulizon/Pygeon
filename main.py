@@ -13,10 +13,10 @@ from ui import display_ui
 
 pg.init()
 clock = pg.time.Clock()
-gmap = None
-game = None
+gmap = Map()
+game = Game(gmap)
 
-def generate_new_level(current_player=None):
+def generate_new_level(current_player):
     game_objs_grps = [ground, walls, decorations, items, traps, visuals]
     for grp in game_objs_grps:
         grp.empty()
@@ -33,9 +33,6 @@ def generate_new_level(current_player=None):
 
     global game
     game = Game(gmap, current_player)
-
-
-generate_new_level()
 
 running = True
 while running:

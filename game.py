@@ -38,7 +38,7 @@ class Map():
 
 
 class Game():
-    def __init__(self, gmap, current_player):
+    def __init__(self, gmap, current_player=None):
         self.camera = Camera(gmap.width_px, gmap.height_px)
         player_start_x = gmap.width_px // 2 - CHARACTER_SIZE
         player_start_y = gmap.height_px // 2 - CHARACTER_SIZE
