@@ -78,7 +78,7 @@ while running:
                 elif event.key == pg.K_LEFT:
                     direction = [-1, 0]
 
-                game.player.slash_attack(direction)
+                game.player.slash_attack(direction, 0.5)
 
             if keys[pg.K_SPACE]:
                 game.player.dash()

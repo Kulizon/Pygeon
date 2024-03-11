@@ -48,7 +48,7 @@ class Character(pg.sprite.Sprite, Animated):
             self.flipped_x = False
             self.animate()
 
-    def slash_attack(self, direction):
+    def slash_attack(self, direction, scale, distance_from_attack_scale=1):
         if pg.time.get_ticks() - self.last_attack_time < self.attack_cooldown:
             return
 
@@ -57,20 +57,19 @@ class Character(pg.sprite.Sprite, Animated):
         size = self.default_size
         if direction[1] == 1:
             dim = (size * 3, size)
-            dest = (self.rect.x - size, self.rect.y - size/2)
+            dest = (self.rect.x - size, self.rect.y - size/2 * distance_from_attack_scale)
         elif direction[1] == -1:
             dim = (size * 3, size)
-            dest = (self.rect.x - size, self.rect.y + size/2)
+            dest = (self.rect.x - size, self.rect.y + size/2 * distance_from_attack_scale)
         elif direction[0] == -1:
             dim = (size, size * 3)
-            dest = (self.rect.x - size/2, self.rect.y - size)
+            dest = (self.rect.x - size/2 * distance_from_attack_scale, self.rect.y - size)
         elif direction[0] == 1:
             dim = (size, size * 3)
-            dest = (self.rect.x + size/2, self.rect.y - size)
+            dest = (self.rect.x + size/2 * distance_from_attack_scale, self.rect.y - size)
         else:
             return
 
-        scale = 0.5
         dest = tuple(int(dest[i] + dim[i] * (1-scale)/2) for i in range(len(dest)))
         dim = tuple(int(x * scale) for x in dim)
 
@@ -142,11 +141,12 @@ class Player(Character):
 
             if self.flash_count % 2 == 0 and diff < self.harm_animation_duration:
                 self.image = pg.transform.scale(self.image, (0, 0))
+
             elif diff > self.harm_animation_duration:
-                self.animate()
                 self.image = pg.transform.scale(self.image, (self.default_size, self.default_size))
                 self.flash_count += 1
                 self.harm_animation_start_time = pg.time.get_ticks()
+
 
     def take_damage(self, damage):
         self.health -= damage
@@ -171,7 +171,7 @@ class Player(Character):
         obstacles = walls
         self.collider.update(self.rect)
 
-        if self.is_dashing() and not ignore_dash_check:
+        if (self.is_dashing() and not ignore_dash_check) or (self.mode == "idle" and dx == 0 and dy == 0):
             return
 
         if dx == 0 and dy == 0:
@@ -186,8 +186,8 @@ class Player(Character):
             dy /= distance
 
         if self.is_dashing():
-            dx *= self.speed * 2
-            dy *= self.speed * 2
+            dx *= self.speed * 1.8
+            dy *= self.speed * 1.8
         else:
             dx *= self.speed
             dy *= self.speed
@@ -323,7 +323,7 @@ class Enemy(Character):
 
         if self.about_to_attack_time != 0:
             if self.attack_dir and pg.time.get_ticks() - self.about_to_attack_time > 500:
-                self.slash_attack(self.attack_dir)
+                self.slash_attack(self.attack_dir, 0.8, 2)
                 self.attack_dir = None
                 self.about_to_attack_time = 0
         elif self.in_line_of_sight(player_rect, obstacles, False, camera):
