@@ -31,14 +31,14 @@ class Character(pg.sprite.Sprite, Animated):
         self.movement_collider = Collider((off_x // 2, self.rect.height - off_y), (self.rect.width - off_x, off_y // 2))
         self.damage_collider = Collider((self.rect.width//4, self.rect.height//4), (self.rect.width//2, self.rect.height//2), (255, 0, 0))
 
-    def get_direction_index(self):
-        if self.move_direction[0] == 1:
+    def get_direction_index(self, direction):
+        if direction[0] == 1:
             return 0
-        elif self.move_direction[0] == -1:
+        elif direction[0] == -1:
             return 2
-        elif self.move_direction[1] == -1:
+        elif direction[1] == -1:
             return 1
-        elif self.move_direction[1] == 1:
+        elif direction[1] == 1:
             return 3
 
     def flip_model_on_move(self, dx):
@@ -79,8 +79,8 @@ class Character(pg.sprite.Sprite, Animated):
             'dest': dest,
             'start_time': pg.time.get_ticks(),
             'duration': 150,
-            'flipped_x': direction[0] == -1,
-            'flipped_y': direction[1] == 1,
+            'flipped_x': direction[0] == -1 or direction[1] == -1,
+            'flipped_y': direction[1] == 1 or direction[0] == 0,
             "damage": 34
         }
 
@@ -112,6 +112,7 @@ class Player(Character):
         self.dash_cooldown = 200
         self.dash_frame_duration = 80
         self.normal_frame_duration = self.frame_duration
+        self.attack_frame_duration = 80
 
         self.dash_animation_images = load_images_from_folder("assets/effects/dash")
         self.move_animation_images = load_images_from_folder("assets/effects/step")
@@ -120,6 +121,7 @@ class Player(Character):
         self.idle_images = [[player_images[200]], [player_images[210]], [player_images[220]], [player_images[230]]]
         self.walking_images = [player_images[10:18], player_images[20:28], player_images[30:38], player_images[40:48]]
         self.dashing_images = [player_images[110:118], player_images[110]]
+        self.attack_images = [player_images[160:166], player_images[170:176], player_images[180:186], player_images[190:196]]
 
         self.harm_animation_duration = 150
         self.harm_animation_start_time = pg.time.get_ticks()
@@ -134,9 +136,16 @@ class Player(Character):
     def is_dashing(self):
         return self.mode == "dashing"
 
+    def stop_attacking(self):
+        self.frame_duration = self.normal_frame_duration
+        self.mode = "idle"
+
     def update(self, camera, *args, **kwargs):
         super().update(camera)
         self.update_dash()
+
+        if self.mode == "attacking" and self.cur_frame == self.last_frame:
+            self.stop_attacking()
 
         if self.flash_count < self.max_flash_count:
             diff = pg.time.get_ticks() - self.harm_animation_start_time
@@ -149,14 +158,24 @@ class Player(Character):
                 self.flash_count += 1
                 self.harm_animation_start_time = pg.time.get_ticks()
 
-
     def take_damage(self, damage):
         self.health -= damage
         self.harm_animation_start_time = pg.time.get_ticks()
         self.flash_count = 0
 
+    def slash_attack(self, direction, scale, distance_from_attack_scale=1):
+        if self.is_dashing():
+            return
+
+        super().slash_attack(direction, scale, distance_from_attack_scale)
+        print(direction, scale)
+        self.mode = "attacking"
+        self.frame_duration = self.attack_frame_duration
+        i = self.get_direction_index(direction)
+        self.change_images(self.attack_images[1 if i == 3 else 3 if i == 1 else i])
+
     def stop_dash(self):
-        self.change_images(self.walking_images[self.get_direction_index()])
+        self.change_images(self.walking_images[self.get_direction_index(self.move_direction)])
         self.mode = "walking"
         self.flip_model_on_move(1 if self.flipped_x else 0)
         self.last_dash_time = pg.time.get_ticks()
@@ -177,7 +196,10 @@ class Player(Character):
             return
 
         if dx == 0 and dy == 0:
-            i = self.get_direction_index()
+            if self.mode == "attacking":
+                return
+
+            i = self.get_direction_index(self.move_direction)
             self.change_images(self.idle_images[2 if i == 1 else 1 if i == 2 else i])
             self.mode = "idle"
             return
@@ -197,8 +219,10 @@ class Player(Character):
         new_move_direction = (0 if dx == 0 else math.copysign(1, dx), 0 if dy == 0 else math.copysign(1, dy))
 
         if self.mode == "idle" or (new_move_direction[0] != self.move_direction[0] or new_move_direction[1] != self.move_direction[1]):
+
             self.move_direction = new_move_direction
-            self.change_images(self.walking_images[self.get_direction_index()])
+            if self.mode != "attacking":
+                self.change_images(self.walking_images[self.get_direction_index(self.move_direction)])
             self.mode = "walking"
 
         self.move_direction = new_move_direction

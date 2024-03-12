@@ -78,7 +78,8 @@ while running:
                 elif event.key == pg.K_LEFT:
                     direction = [-1, 0]
 
-                game.player.slash_attack(direction, 0.5)
+                if direction[0] or direction[1]:
+                    game.player.slash_attack(direction, 0.5)
 
             if keys[pg.K_SPACE]:
                 game.player.dash()
@@ -181,6 +182,7 @@ while running:
             char.attacks.remove(attack)
 
             images = load_images_from_folder("assets/effects/slash_attack")
+
             attackVisual = Visual(images, attackRect, attack['start_time'], attack['duration'], attack['flipped_x'], attack['flipped_y'])
 
             visuals.add(attackVisual)
