@@ -8,6 +8,7 @@ from shared import WALL_SIZE, CHARACTER_SIZE, visuals, font, screen, walls, font
 from utility import Animated, load_images_from_folder, Visual, NotificationVisual, ActionObject, Collider, load_tileset
 
 player_images = load_tileset("assets/LATER_USE_USE_USE/player.png", 32, 32)
+player_upgrades_images = load_tileset("assets/LATER_USE_USE_USE/food.png", 16, 16)
 
 
 class Character(pg.sprite.Sprite, Animated):
@@ -129,7 +130,7 @@ class Player(Character):
         self.flash_count = self.max_flash_count
 
         self.number_of_keys = 0
-        self.coins = 0
+        self.coins = 100
         self.health = 10
         self.is_next_level = False
 
@@ -279,6 +280,16 @@ class Player(Character):
         if isinstance(item, PlayerUpgradeItem):
             if item.stat == "movement_speed":
                 self.speed *= item.modifier
+
+            elif item.stat == "attack_speed":
+                self.speed *= item.modifier
+            elif item.stat == "dash_length":
+                self.speed *= item.modifier
+            elif item.stat == "dash_regeneration_speed":
+                self.speed *= item.modifier
+            elif item.stat == "attack_size":
+                self.speed *= item.modifier
+
 
 class Enemy(Character):
     def __init__(self, x, y):
@@ -496,9 +507,29 @@ class Merchant(Character):
 
         it1 = MerchantItem(Key(self.rect.x - 2 * WALL_SIZE, start_y + self.rect.height + 20), 5)
         it2 = MerchantItem(Key(self.rect.x, start_y + self.rect.height + 20), 0)
-        it3 = MerchantItem(PlayerUpgradeItem(load_images_from_folder("assets/items_and_traps_animations/flag"), self.rect.x + 2 * WALL_SIZE, start_y + self.rect.height + 20, "movement_speed", 2), 0, description="Increase movement speed")
+        it3 = self.create_random_player_upgrade(self.rect.x + 2 * WALL_SIZE, start_y + self.rect.height + 20)
 
         self.items_to_sell = [it1, it2, it3]
+
+    def create_random_player_upgrade(self, pos_x, pos_y):
+        image = [player_upgrades_images[random.randint(0, len(player_upgrades_images)-1)]]
+
+        stats = {
+            "movement_speed": [1, 2],
+            "attack_speed": [1, 2],
+            "dash_regeneration_speed": [1, 2],
+            "dash_length": [1, 2],
+            "attack_size": [1, 2],
+        }
+
+        stat = random.choice(list(stats.keys()))
+        modifier_range = stats[stat]
+        modifier = random.uniform(modifier_range[0], modifier_range[1])
+
+        price = random.randint(0, 20) + 10
+        description = "Increase " + " ".join(stat.split("_"))
+
+        return MerchantItem(PlayerUpgradeItem(image, pos_x, pos_y, stat, modifier), price, description=description)
 
     def render_items(self, camera, player):
         for item in self.items_to_sell:
