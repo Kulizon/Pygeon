@@ -114,8 +114,9 @@ while running:
     game.camera.update(game.player)
 
     for trap in traps:
-        if game.player.rect.colliderect(trap.rect) and trap.damage > 0:
-            if isinstance(trap, SpikeTrap) and game.player.rect.bottom - CHARACTER_SIZE >= trap.rect.top:
+        if game.player.damage_collider.collision_rect.colliderect(trap.rect) and trap.damage > 0:
+            # todo change game.player.damage_collider.collision_rect.bottom
+            if isinstance(trap, SpikeTrap) and game.player.damage_collider.collision_rect.bottom - game.player.damage_collider.collision_rect.height >= trap.rect.top:
                 continue
 
             game.player.take_damage(trap.damage)
@@ -123,7 +124,7 @@ while running:
 
         if hasattr(trap, 'arrows'):
             for arrow in trap.arrows:
-                if arrow.rect.colliderect(game.player.rect):
+                if arrow.rect.colliderect(game.player.damage_collider.collision_rect):
                     game.player.take_damage(1)
                     trap.already_hit = True
                     trap.arrows.remove(arrow)
@@ -134,7 +135,7 @@ while running:
     for item in items:
         if isinstance(item, Chest):
             chests.append(item)
-        elif item.pickable and item.rect.colliderect(game.player.rect):
+        elif item.pickable and item.rect.colliderect(game.player.damage_collider.collision_rect):
             game.player.add_item(item)
             item.remove(items)
 
@@ -145,7 +146,7 @@ while running:
             health_bar_height = 10
             current_health_length = (char.health / char.full_health) * health_bar_length
 
-            pos_x = char.rect.x - (health_bar_length - CHARACTER_SIZE) // 2 + game.camera.rect.x
+            pos_x = char.rect.x - (health_bar_length - char.size[0]) // 2 + game.camera.rect.x
             pos_y = char.rect.y - 14 - health_bar_height // 2 + game.camera.rect.y
 
             pg.draw.rect(screen, (0, 0, 0), (pos_x, pos_y, health_bar_length, health_bar_height))
@@ -166,7 +167,7 @@ while running:
                         chest.open()
 
             for testedChar in characters:
-                if attackRect.colliderect(testedChar) and testedChar != char:
+                if attackRect.colliderect(testedChar.damage_collider.collision_rect) and testedChar != char:
                     if testedChar == game.player:
                         game.player.take_damage(1)
                     else:

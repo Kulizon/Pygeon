@@ -28,7 +28,8 @@ class Character(pg.sprite.Sprite, Animated):
 
         off_x = 40
         off_y = 40
-        self.collider = Collider((off_x//2, self.rect.height-off_y), (self.rect.width - off_x, off_y//2))
+        self.movement_collider = Collider((off_x // 2, self.rect.height - off_y), (self.rect.width - off_x, off_y // 2))
+        self.damage_collider = Collider((self.rect.width//4, self.rect.height//4), (self.rect.width//2, self.rect.height//2), (255, 0, 0))
 
     def get_direction_index(self):
         if self.move_direction[0] == 1:
@@ -87,7 +88,8 @@ class Character(pg.sprite.Sprite, Animated):
 
     def update(self, camera, *args, **kwargs):
         self.animate_new_frame()
-        self.collider.update(self.rect, camera)
+        self.movement_collider.update(self.rect, camera)
+        self.damage_collider.update(self.rect, camera)
 
     def change_images(self, images):
         self.images = images
@@ -169,7 +171,7 @@ class Player(Character):
 
     def move_player(self, dx, dy, ignore_dash_check=False):
         obstacles = walls
-        self.collider.update(self.rect)
+        self.movement_collider.update(self.rect)
 
         if (self.is_dashing() and not ignore_dash_check) or (self.mode == "idle" and dx == 0 and dy == 0):
             return
@@ -203,7 +205,7 @@ class Player(Character):
 
         dx = math.copysign(math.ceil(abs(dx)), dx)
         dy = math.copysign(math.ceil(abs(dy)), dy)
-        new_rect = self.collider.collision_rect.move(dx, dy)
+        new_rect = self.movement_collider.collision_rect.move(dx, dy)
 
         is_collision, is_collision_along_x, is_collision_along_y = False, False, False
         for obj in obstacles:
@@ -216,8 +218,8 @@ class Player(Character):
             self.rect.y += dy
         else:
             # if collision occurred, try moving along each axis individually
-            new_x_rect = self.collider.collision_rect.move(dx, 0)
-            new_y_rect = self.collider.collision_rect.move(0, dy)
+            new_x_rect = self.movement_collider.collision_rect.move(dx, 0)
+            new_y_rect = self.movement_collider.collision_rect.move(0, dy)
 
             is_collision_along_x = any(obj.rect.colliderect(new_x_rect) and obj != self for obj in obstacles)
             is_collision_along_y = any(obj.rect.colliderect(new_y_rect) and obj != self for obj in obstacles)
@@ -386,8 +388,8 @@ class Enemy(Character):
         self.animate_new_frame()
 
     def is_colliding_with_walls(self, dx, dy, obstacles):
-        self.collider.update(self.rect)
-        new_rect = self.collider.collision_rect.move(dx, dy)
+        self.movement_collider.update(self.rect)
+        new_rect = self.movement_collider.collision_rect.move(dx, dy)
         for wall in obstacles:
             if wall.rect.colliderect(new_rect):
                 return True
