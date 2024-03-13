@@ -16,12 +16,11 @@ clock = pg.time.Clock()
 gmap = Map()
 game = Game(gmap)
 
+
 def generate_new_level(current_player):
     game_objs_grps = [ground, walls, decorations, items, traps, visuals]
     for grp in game_objs_grps:
         grp.empty()
-
-    print(current_player)
 
     if not current_player:
         characters.empty()
@@ -33,6 +32,7 @@ def generate_new_level(current_player):
 
     global game
     game = Game(gmap, current_player)
+
 
 running = True
 while running:
@@ -49,7 +49,6 @@ while running:
         if issubclass(tile.__class__, ActionObject):
             action_objects.append(tile)
 
-
     for event in pg.event.get():
         if event.type == pg.QUIT:
             running = False
@@ -64,7 +63,6 @@ while running:
 
                     if performed:
                         break
-
 
             if keys[pg.K_UP] or keys[pg.K_DOWN] or keys[pg.K_RIGHT] or keys[pg.K_LEFT]:
                 direction = [0, 0]

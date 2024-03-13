@@ -21,6 +21,8 @@ wall_ids = [0, 1, 2, 3, 4, 5, 10, 15, 20, 25, 30, 35, 40, 41, 42, 43, 44, 45, 50
 void_tile_id = 78
 
 
+#def generate_overworld():
+
 
 def place_room(map, room, position):
     x, y = position
@@ -77,6 +79,7 @@ def count_adjacent_rooms(map, position):
                 count += 1
     return count
 
+
 def is_empty_space(layout, decorations_layout, x, y):
     return (0 <= y < len(layout) and (0 <= x < len(layout[y])
             and layout[y][x] not in wall_ids
@@ -98,6 +101,7 @@ def find_wall_with_free_n_spaces(layout, decorations_layout, direction, x, y, n)
         if all(is_empty_space(layout, decorations_layout, x + i * dx, y + i * dy) for i in range(1, n + 1)):
             return directions[direction]
     return (0, 0)
+
 
 def find_furthest_room(room_map):
     rows = len(room_map)
@@ -183,7 +187,6 @@ def traverse_rooms_in_random_order(room_layout, decorations_layout, x_off, y_off
                 break
 
 def generate_key(room_layout, decorations_layout, x_off, y_off):
-
     def place_key(room_layout, decorations_layout, grid_position, pos_x, pos_y):
         row, col = grid_position
         room_tile_id = room_layout[row][col]
@@ -336,7 +339,6 @@ def generate_map(room_map):
                     or (10 < number_of_added["chests"] and random.random() < 0.15):
                 generate_chest(room_layout, decorations_layout, x_off, y_off)
                 number_of_added["chests"] += 1
-
 
         # generate sprites
         for row in range(len(room_layout)):

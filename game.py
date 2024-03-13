@@ -6,6 +6,7 @@ from shared import WALL_SIZE, characters, CHARACTER_SIZE
 from ui import trim_matrix
 from utility import Camera
 
+
 class Map():
     def __init__(self):
         rooms = [i + 1 for i in range(10)]
@@ -51,9 +52,9 @@ class Game():
             self.player.rect.x = player_start_x
             self.player.rect.y = player_start_y
 
-        self.merchant = Merchant(gmap.width_px // 2 - CHARACTER_SIZE, gmap.height_px // 2 - 220 - CHARACTER_SIZE)
-        self.ch1 = Enemy(gmap.width_px // 2, gmap.height_px // 2 + 220)
-        characters.add(self.player, self.ch1, self.merchant)
+        merchant = Merchant(gmap.width_px // 2 - CHARACTER_SIZE, gmap.height_px // 2 - 220 - CHARACTER_SIZE)
+        ch1 = Enemy(gmap.width_px // 2, gmap.height_px // 2 + 220)
+        characters.add(self.player, ch1, merchant)
         #characters.add(self.player, self.merchant)
 
 

@@ -10,7 +10,6 @@ from utility import Animated, load_images_from_folder, Visual, NotificationVisua
 player_images = load_tileset("assets/player_character/player.png", 32, 32)
 player_upgrades_images = load_tileset("assets/food.png", 16, 16)[0:35]
 
-
 class Character(pg.sprite.Sprite, Animated):
     def __init__(self, x, y, images, size):
         super().__init__()
@@ -194,7 +193,7 @@ class Character(pg.sprite.Sprite, Animated):
         self.velocity_x *= (1 - self.friction)
         self.velocity_y *= (1 - self.friction)
 
-        if isinstance(self, Enemy):
+        if isinstance(self, Player):
             print("if possible move")
             print(dx, dy, self.velocity_x, self.velocity_y)
 
@@ -361,6 +360,11 @@ class Player(Character):
                 (self.mode == "idle" and dx == 0 and dy == 0):
             return
 
+        # fix insane acceleration
+        if self.took_damage:
+            dx = 0
+            dy = 0
+
         self.change_idle_images(dx, dy)
         dx, dy = self.update_move_values(dx, dy)
 
@@ -456,7 +460,7 @@ class Enemy(Character):
             self.roam_wait_time = random.randint(1500, 2500)
 
     def launch_attack(self):
-        if self.attack_dir and pg.time.get_ticks() - self.about_to_attack_time > 500:
+        if self.attack_dir and pg.time.get_ticks() - self.about_to_attack_time > 250:
             self.slash_attack(self.attack_dir, 0.8)
             self.attack_dir = None
             self.about_to_attack_time = 0
