@@ -33,6 +33,17 @@ class Character(pg.sprite.Sprite, Animated):
         self.movement_collider = Collider((off_x // 2, self.rect.height - off_y), (self.rect.width - off_x, off_y // 2))
         self.damage_collider = Collider((self.rect.width//4, self.rect.height//4), (self.rect.width//2, self.rect.height//2), (255, 0, 0))
 
+        self.mode = "idle"
+        self.death_frame_duration = 135
+        self.normal_frame_duration = self.frame_duration
+        self.attack_frame_duration = 80
+
+        self.idle_images = [[player_images[200]], [player_images[210]], [player_images[220]], [player_images[230]]]
+        self.walking_images = [player_images[10:18], player_images[20:28], player_images[30:38], player_images[40:48]]
+        self.dashing_images = [player_images[110:118], player_images[110]]
+        self.attack_images = [player_images[160:166], player_images[170:176], player_images[180:186], player_images[190:196]]
+        self.death_images = [player_images[150:158]]
+
     def take_damage(self, damage, enemy=None):
         self.health -= damage
 
@@ -50,7 +61,6 @@ class Character(pg.sprite.Sprite, Animated):
         self.rect.x += self.move_direction[0] * pushback_distance
         self.rect.y += self.move_direction[1] * pushback_distance
 
-
     def get_direction_index(self, direction):
         if direction[0] == 1:
             return 0
@@ -60,6 +70,8 @@ class Character(pg.sprite.Sprite, Animated):
             return 1
         elif direction[1] == 1:
             return 3
+        else:
+            return 0
 
     def flip_model_on_move(self, dx):
         if dx < 0 and not self.flipped_x:
@@ -118,32 +130,87 @@ class Character(pg.sprite.Sprite, Animated):
         self.last_frame = len(images)-1
         self.animate()
 
+    def is_dashing(self):
+        return False
+
+    def update_move_values(self, dx, dy):
+        distance = math.sqrt(dx ** 2 + dy ** 2)
+        if distance != 0:
+            dx /= distance
+            dy /= distance
+        if self.is_dashing():
+            dx *= self.speed * 1.8
+            dy *= self.speed * 1.8
+        else:
+            dx *= self.speed
+            dy *= self.speed
+
+        return dx, dy
+
+    def change_walking_images(self, dx, dy):
+        new_move_direction = (0 if dx == 0 else math.copysign(1, dx), 0 if dy == 0 else math.copysign(1, dy))
+        if self.mode == "idle" or (new_move_direction[0] != self.move_direction[0] or new_move_direction[1] != self.move_direction[1]):
+            self.move_direction = new_move_direction
+            if self.mode != "attacking":
+                self.change_images(self.walking_images[self.get_direction_index(self.move_direction)])
+            self.mode = "walking"
+        self.move_direction = new_move_direction
+
+    def change_idle_images(self, dx, dy):
+        if dx == 0 and dy == 0:
+            if self.mode == "attacking":
+                return
+
+            i = self.get_direction_index(self.move_direction)
+            self.change_images(self.idle_images[2 if i == 1 else 1 if i == 2 else i])
+            self.mode = "idle"
+            return
+
+    def move_if_possible(self, dx, dy):
+        self.movement_collider.update(self.rect)
+
+        dx = math.copysign(math.ceil(abs(dx)), dx)
+        dy = math.copysign(math.ceil(abs(dy)), dy)
+        new_rect = self.movement_collider.collision_rect.move(dx, dy)
+
+        is_collision, is_collision_along_x, is_collision_along_y = False, False, False
+        for obj in walls:
+            if obj.rect.colliderect(new_rect) and obj != self:
+                is_collision = True
+                break
+
+        if not is_collision:
+            self.rect.x += dx
+            self.rect.y += dy
+        else:
+            # if collision occurred, try moving along each axis individually
+            new_x_rect = self.movement_collider.collision_rect.move(dx, 0)
+            new_y_rect = self.movement_collider.collision_rect.move(0, dy)
+
+            is_collision_along_x = any(obj.rect.colliderect(new_x_rect) and obj != self for obj in walls)
+            is_collision_along_y = any(obj.rect.colliderect(new_y_rect) and obj != self for obj in walls)
+
+            if not is_collision_along_x:
+                self.rect.x += dx
+            elif not is_collision_along_y:
+                self.rect.y += dy
+
+        return not (is_collision and (is_collision_along_x or dx == 0) and (is_collision_along_y or dy == 0))
+
 
 class Player(Character):
     def __init__(self, start_x, start_y):
         Character.__init__(self, start_x, start_y, player_images[0:4], CHARACTER_SIZE * 1.6)
-        self.mode = "idle"
-        self.dest_x = self.rect.x
-        self.dest_y = self.rect.y
         self.full_health = 12
         self.speed = 5
 
         self.last_dash_time = pg.time.get_ticks()
         self.dash_cooldown = 200
         self.dash_frame_duration = 80
-        self.death_frame_duration = 135
-        self.normal_frame_duration = self.frame_duration
-        self.attack_frame_duration = 80
 
         self.dash_animation_images = load_images_from_folder("assets/effects/dash")
         self.move_animation_images = load_images_from_folder("assets/effects/step")
         self.last_move_animation = pg.time.get_ticks()
-
-        self.idle_images = [[player_images[200]], [player_images[210]], [player_images[220]], [player_images[230]]]
-        self.walking_images = [player_images[10:18], player_images[20:28], player_images[30:38], player_images[40:48]]
-        self.dashing_images = [player_images[110:118], player_images[110]]
-        self.attack_images = [player_images[160:166], player_images[170:176], player_images[180:186], player_images[190:196]]
-        self.death_images = [player_images[150:158]]
 
         self.harm_animation_duration = 150
         self.harm_animation_start_time = pg.time.get_ticks()
@@ -228,75 +295,26 @@ class Player(Character):
             if self.cur_frame == self.last_frame:
                 self.stop_dash()
 
-    def move_player(self, dx, dy, ignore_dash_check=False):
-        obstacles = walls
-        self.movement_collider.update(self.rect)
-
-        if (self.mode == "dead") or (self.is_dashing() and not ignore_dash_check) or (self.mode == "idle" and dx == 0 and dy == 0):
-            return
-
-        if dx == 0 and dy == 0:
-            if self.mode == "attacking":
-                return
-
-            i = self.get_direction_index(self.move_direction)
-            self.change_images(self.idle_images[2 if i == 1 else 1 if i == 2 else i])
-            self.mode = "idle"
-            return
-
-        distance = math.sqrt(dx**2 + dy**2)
-        if distance != 0:
-            dx /= distance
-            dy /= distance
-
-        if self.is_dashing():
-            dx *= self.speed * 1.8
-            dy *= self.speed * 1.8
-        else:
-            dx *= self.speed
-            dy *= self.speed
-
-        new_move_direction = (0 if dx == 0 else math.copysign(1, dx), 0 if dy == 0 else math.copysign(1, dy))
-
-        if self.mode == "idle" or (new_move_direction[0] != self.move_direction[0] or new_move_direction[1] != self.move_direction[1]):
-
-            self.move_direction = new_move_direction
-            if self.mode != "attacking":
-                self.change_images(self.walking_images[self.get_direction_index(self.move_direction)])
-            self.mode = "walking"
-
-        self.move_direction = new_move_direction
-
-        dx = math.copysign(math.ceil(abs(dx)), dx)
-        dy = math.copysign(math.ceil(abs(dy)), dy)
-        new_rect = self.movement_collider.collision_rect.move(dx, dy)
-
-        is_collision, is_collision_along_x, is_collision_along_y = False, False, False
-        for obj in obstacles:
-            if obj.rect.colliderect(new_rect) and obj != self:
-                is_collision = True
-                break
-
-        if not is_collision:
-            self.rect.x += dx
-            self.rect.y += dy
-        else:
-            # if collision occurred, try moving along each axis individually
-            new_x_rect = self.movement_collider.collision_rect.move(dx, 0)
-            new_y_rect = self.movement_collider.collision_rect.move(0, dy)
-
-            is_collision_along_x = any(obj.rect.colliderect(new_x_rect) and obj != self for obj in obstacles)
-            is_collision_along_y = any(obj.rect.colliderect(new_y_rect) and obj != self for obj in obstacles)
-
-            if not is_collision_along_x:
-                self.rect.x += dx
-            elif not is_collision_along_y:
-                self.rect.y += dy
-
-        moved = not (is_collision and (is_collision_along_x or dx == 0) and (is_collision_along_y or dy == 0))
-        if moved and pg.time.get_ticks() - self.last_move_animation > 220:
-            visuals.add(Visual(self.move_animation_images, self.rect.move(-25 * self.move_direction[0], 10 - 40 * self.move_direction[1]).inflate(-70, -70), pg.time.get_ticks(), 250))
+    def add_walking_effect(self):
+        if pg.time.get_ticks() - self.last_move_animation > 220:
+            visuals.add(Visual(self.move_animation_images,
+                               self.rect.move(-25 * self.move_direction[0], 10 - 40 * self.move_direction[1]).inflate(
+                                   -70, -70), pg.time.get_ticks(), 250))
             self.last_move_animation = pg.time.get_ticks()
+
+    def move_player(self, dx, dy, ignore_dash_check=False):
+        if (self.mode == "dead") or (self.is_dashing() and not ignore_dash_check) or \
+                (self.mode == "idle" and dx == 0 and dy == 0):
+            return
+
+        self.change_idle_images(dx, dy)
+        dx, dy = self.update_move_values(dx, dy)
+
+        self.change_walking_images(dx, dy)
+        moved = self.move_if_possible(dx, dy)
+
+        if moved:
+            self.add_walking_effect()
 
     def dash(self):
         if pg.time.get_ticks() - self.last_dash_time < self.dash_cooldown:
@@ -359,30 +377,20 @@ class Enemy(Character):
             elif not self.is_colliding_with_walls(0, move_y, obstacles):
                 self.rect.y += move_y
                 return True
-
         return False
 
-    def move_in_direction(self, goal_position, obstacles):
+    def move_enemy(self, goal_position):
         pos_x, pos_y = goal_position
         dx = pos_x - self.rect.x
         dy = pos_y - self.rect.y
-        distance = math.sqrt(dx ** 2 + dy ** 2)
 
-        if distance != 0:
-            dx /= distance
-            dy /= distance
-
-        dx *= self.speed
-        dy *= self.speed
-
-        move_x = math.copysign(math.ceil(abs(dx)), dx)
-        move_y = math.copysign(math.ceil(abs(dy)), dy)
+        dx, dy = self.update_move_values(dx, dy)
 
         self.flip_model_on_move(dx)
 
-        moved = self.change_position(move_x, move_y, obstacles)
+        moved = self.move_if_possible(dx, dy)
 
-        if distance <= 4 or not moved:
+        if not moved or (dx and dy == 0):
             self.last_known_player_position = None
             self.roam_position = None
             self.last_roam_time = pg.time.get_ticks()
@@ -405,7 +413,7 @@ class Enemy(Character):
 
     def roam_to(self, camera):
         self.in_line_of_sight(pg.Rect(self.roam_position[0], self.roam_position[1], 1, 1), walls, True, camera)
-        self.move_in_direction(self.roam_position, walls)
+        self.move_enemy(self.roam_position)
 
     def choose_where_to_roam(self, camera):
         random_point = pg.Rect(self.rect.move(random.randint(50, 150) * [-1, 1][random.randint(0, 1)],
@@ -416,37 +424,33 @@ class Enemy(Character):
         if self.in_line_of_sight(random_point, walls, True, camera):
             self.roam_position = (random_point.x, random_point.y)
 
+    def handle_spotting(self, player_rect):
+
+        if self.last_known_player_position is None and self.spotted_time is None:
+            visuals.add(NotificationVisual(load_images_from_folder("assets/effects/spotted"), self.rect.move(0, -60)))
+            self.flip_model_on_move(player_rect.x - self.rect.x)
+            self.spotted_time = pg.time.get_ticks()
+
+        self.last_known_player_position = (player_rect.x, player_rect.y)
+        if self.spotted_time and pg.time.get_ticks() - self.spotted_time < self.spotted_wait_duration:
+            return
+
+        self.spotted_time = None
+        distance_to_player = (self.rect.x - player_rect.x) ** 2 + (self.rect.y - player_rect.y) ** 2
+
+        if distance_to_player > 9000:
+            self.move_enemy((player_rect.x, player_rect.y))
+        else:
+            self.prepare_attack(player_rect)
+
     def update(self, camera, player_rect, *args, **kwargs):
         super().update(camera)
-
         if self.about_to_attack_time != 0:
             self.launch_attack()
         elif self.in_line_of_sight(player_rect, walls, False, camera):
-
-            if self.last_known_player_position is None and self.spotted_time is None:
-                visuals.add(NotificationVisual(load_images_from_folder("assets/effects/spotted"), self.rect.move(0, -60)))
-                self.flip_model_on_move(player_rect.x - self.rect.x)
-                self.spotted_time = pg.time.get_ticks()
-
-            self.last_known_player_position = (player_rect.x, player_rect.y)
-            if self.spotted_time and pg.time.get_ticks() - self.spotted_time < self.spotted_wait_duration:
-                return
-
-            self.spotted_time = None
-
-            distance_to_player = (self.rect.x - player_rect.x) ** 2 + (self.rect.y - player_rect.y) ** 2
-
-            if distance_to_player > 9000:
-                self.move_in_direction((player_rect.x, player_rect.y), walls)
-            else:
-                self.prepare_attack(player_rect)
-
-
-
-
-
+            self.handle_spotting(player_rect)
         elif self.last_known_player_position:
-            self.move_in_direction(self.last_known_player_position, walls)
+            self.move_enemy(self.last_known_player_position)
         elif self.roam_position:
             self.roam_to(camera)
         else:
