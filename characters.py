@@ -174,13 +174,15 @@ class Player(Character):
                 self.harm_animation_start_time = pg.time.get_ticks()
 
     def take_damage(self, damage):
-        if self.mode == "dead":
-            return
+        if self.mode == "dead" or self.mode == "dashing":
+            return False
 
         self.health -= damage
         if self.health > 0:
             self.harm_animation_start_time = pg.time.get_ticks()
             self.flash_count = 0
+
+        return True
 
     def slash_attack(self, direction, scale):
         if self.is_dashing():
@@ -466,14 +468,14 @@ class Enemy(Character):
 
 class PlayerUpgradeItem(Item):
     def __init__(self, images, x, y, stat, modifier):
-        Item.__init__(self, images, x, y, 300, (WALL_SIZE * 0.8, WALL_SIZE * 0.8))
+        Item.__init__(self, images, x, y, 300, (WALL_SIZE * 0.7, WALL_SIZE * 0.7))
         self.stat = stat
         self.modifier = modifier
 
 
 class MerchantItem(Item, ActionObject):
     def __init__(self, item, price, description=None):
-        Item.__init__(self, load_images_from_folder("assets/items_and_traps_animations/mini_chest"), item.rect.x, item.rect.y, item.frame_duration, item.rect.size)
+        Item.__init__(self, [pg.image.load("assets/x.png")], item.rect.x, item.rect.y, item.frame_duration, item.rect.size)
         ActionObject.__init__(self, self.rect, self.sell, CHARACTER_SIZE)
         self.item_to_sell = item
 
@@ -543,9 +545,6 @@ class Merchant(Character):
         modifier_range = list(map(lambda x: x * 1, modifier_range))
         modifier = random.uniform(modifier_range[0], modifier_range[1])
 
-        print(modifier)
-
-
         price = random.randint(0, 20) + 10
         description = "Increase " + " ".join(stat.split("_"))
 
@@ -562,7 +561,7 @@ class Merchant(Character):
             item.update()
 
             if item.bought:
-                new_item = MerchantItem(Item(load_images_from_folder("assets/items_and_traps_animations/mini_chest"), 0, 0, 500, [item.rect.width, item.rect.height]), -1)
+                new_item = MerchantItem(Item([pg.image.load("assets/x.png")], 0, 0, 500, [item.rect.width, item.rect.height]), -1)
                 new_item.rect = item.rect
                 self.items_to_sell[i] = new_item
 

@@ -116,7 +116,6 @@ while running:
 
     for trap in traps:
         if game.player.damage_collider.collision_rect.colliderect(trap.rect) and trap.damage > 0:
-            # todo change game.player.damage_collider.collision_rect.bottom
             if isinstance(trap, SpikeTrap) and game.player.damage_collider.collision_rect.bottom - game.player.damage_collider.collision_rect.height >= trap.rect.top:
                 continue
 
@@ -126,9 +125,10 @@ while running:
         if hasattr(trap, 'arrows'):
             for arrow in trap.arrows:
                 if arrow.rect.colliderect(game.player.damage_collider.collision_rect):
-                    game.player.take_damage(1)
+                    damage_took = game.player.take_damage(1)
                     trap.already_hit = True
-                    trap.arrows.remove(arrow)
+                    if damage_took:
+                        trap.arrows.remove(arrow)
                 if any(arrow.rect.colliderect(wall) for wall in walls):
                     trap.arrows.remove(arrow)
 
