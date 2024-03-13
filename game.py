@@ -52,8 +52,9 @@ class Game():
             self.player.rect.y = player_start_y
 
         self.merchant = Merchant(gmap.width_px // 2 - CHARACTER_SIZE, gmap.height_px // 2 - 220 - CHARACTER_SIZE)
-        self.ch1 = Enemy(gmap.width_px // 2, gmap.height_px // 2 + 250)
+        self.ch1 = Enemy(gmap.width_px // 2, gmap.height_px // 2 + 220)
         characters.add(self.player, self.ch1, self.merchant)
+        #characters.add(self.player, self.merchant)
 
 
 

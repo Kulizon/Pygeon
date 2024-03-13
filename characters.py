@@ -28,10 +28,8 @@ class Character(pg.sprite.Sprite, Animated):
         self.speed = 1
         self.move_direction = [1, 0]
 
-        off_x = 40
-        off_y = 40
-        self.movement_collider = Collider((off_x // 2, self.rect.height - off_y), (self.rect.width - off_x, off_y // 2))
-        self.damage_collider = Collider((self.rect.width//4, self.rect.height//4), (self.rect.width//2, self.rect.height//2), (255, 0, 0))
+        self.movement_collider = None
+        self.damage_collider = None
 
         self.mode = "idle"
         self.death_frame_duration = 135
@@ -43,6 +41,14 @@ class Character(pg.sprite.Sprite, Animated):
         self.dashing_images = [player_images[110:118], player_images[110]]
         self.attack_images = [player_images[160:166], player_images[170:176], player_images[180:186], player_images[190:196]]
         self.death_images = [player_images[150:158]]
+
+        self.velocity_x = 0
+        self.velocity_y = 0
+        self.default_acceleration = 0.2
+        self.acceleration = self.default_acceleration
+        self.default_friction = 0.8
+        self.friction = self.default_friction
+        self.took_damage = False
 
     def take_damage(self, damage, enemy=None):
         self.health -= damage
@@ -56,10 +62,18 @@ class Character(pg.sprite.Sprite, Animated):
         if length != 0:
             enemy_direction = [enemy_direction[0] / length, enemy_direction[1] / length]
 
-        pushback_distance = 50
+        pushback_distance = 30
         self.move_direction = [-enemy_direction[0], -enemy_direction[1]]
-        self.rect.x += self.move_direction[0] * pushback_distance
-        self.rect.y += self.move_direction[1] * pushback_distance
+
+        dx = self.move_direction[0] * pushback_distance
+        dy = self.move_direction[1] * pushback_distance
+
+        self.friction = 0.30
+        self.acceleration = 0.1
+        self.velocity_x = 0
+        self.velocity_y = 0
+        self.took_damage = True
+        self.move_if_possible(dx, dy)
 
     def get_direction_index(self, direction):
         if direction[0] == 1:
@@ -89,7 +103,6 @@ class Character(pg.sprite.Sprite, Animated):
 
         size = self.attack_size
         if direction[1] == 1:
-            print(1)
             dim = (size * 3, size)
             dest = (self.damage_collider.collision_rect.centerx - dim[0]//4, self.damage_collider.collision_rect.centery - self.damage_collider.collision_size[1] - dim[1]//2)
         elif direction[1] == -1:
@@ -169,16 +182,52 @@ class Character(pg.sprite.Sprite, Animated):
     def move_if_possible(self, dx, dy):
         self.movement_collider.update(self.rect)
 
+        if dx < 0:
+            self.velocity_x += dx
+        elif dx > 0:
+            self.velocity_x += dx
+        if dy < 0:
+            self.velocity_y += dy
+        elif dy > 0:
+            self.velocity_y += dy
+
+        self.velocity_x *= (1 - self.friction)
+        self.velocity_y *= (1 - self.friction)
+
+        if isinstance(self, Enemy):
+            print("if possible move")
+            print(dx, dy, self.velocity_x, self.velocity_y)
+
+        min_velocity = 0.1
+        if abs(self.velocity_y) < min_velocity:
+            self.velocity_y = 0
+        if abs(self.velocity_x) < min_velocity:
+            self.velocity_x = 0
+
+        if self.took_damage and abs(self.velocity_y) + abs(self.velocity_x) < 2:
+            self.took_damage = False
+            self.friction = self.default_friction
+            self.acceleration = self.default_acceleration
+
+        self.velocity_x = abs(self.velocity_x) * (-1 if self.velocity_x < 0 else 1)
+        self.velocity_y = abs(self.velocity_y) * (-1 if self.velocity_y < 0 else 1)
+
+        dx = self.velocity_x
+        dy = self.velocity_y
+
         dx = math.copysign(math.ceil(abs(dx)), dx)
         dy = math.copysign(math.ceil(abs(dy)), dy)
         new_rect = self.movement_collider.collision_rect.move(dx, dy)
+
+        if dx == 0 and dy == 0:
+            self.friction = self.default_friction
+            return False
 
         is_collision, is_collision_along_x, is_collision_along_y = False, False, False
         for obj in walls:
             if obj.rect.colliderect(new_rect) and obj != self:
                 is_collision = True
                 break
-
         if not is_collision:
             self.rect.x += dx
             self.rect.y += dy
@@ -202,7 +251,7 @@ class Player(Character):
     def __init__(self, start_x, start_y):
         Character.__init__(self, start_x, start_y, player_images[0:4], CHARACTER_SIZE * 1.6)
         self.full_health = 12
-        self.speed = 5
+        self.speed = 20
 
         self.last_dash_time = pg.time.get_ticks()
         self.dash_cooldown = 200
@@ -221,6 +270,12 @@ class Player(Character):
         self.coins = 1595
         self.health = 4
         self.is_next_level = False
+
+        off_x = 40
+        off_y = 40
+        self.movement_collider = Collider((off_x // 2, self.rect.height - off_y), (self.rect.width - off_x, off_y // 2))
+        self.damage_collider = Collider((self.rect.width // 4, self.rect.height // 4),
+                                        (self.rect.width // 2, self.rect.height // 2), (255, 0, 0))
 
     def is_dashing(self):
         return self.mode == "dashing"
@@ -263,7 +318,6 @@ class Player(Character):
             return False
 
         super().take_damage(damage, enemy)
-
 
         if self.health > 0:
             self.harm_animation_start_time = pg.time.get_ticks()
@@ -361,6 +415,11 @@ class Enemy(Character):
         self.attack_cooldown = 1500
         self.about_to_attack_time = 0
 
+        off_x = 10
+        off_y = 20
+        self.movement_collider = Collider((off_x//2, self.rect.height - off_y), (self.rect.width - off_x, off_y))
+        self.damage_collider = Collider((1, 1), (self.rect.width, self.rect.height), (255, 0, 0))
+
         self.spotted_time = None
         self.spotted_wait_duration = 500
 
@@ -385,7 +444,6 @@ class Enemy(Character):
         dy = pos_y - self.rect.y
 
         dx, dy = self.update_move_values(dx, dy)
-
         self.flip_model_on_move(dx)
 
         moved = self.move_if_possible(dx, dy)
@@ -443,8 +501,13 @@ class Enemy(Character):
         else:
             self.prepare_attack(player_rect)
 
+
     def update(self, camera, player_rect, *args, **kwargs):
         super().update(camera)
+        # handle knockback
+        if self.took_damage and (self.velocity_x > 0.05 or self.velocity_y > 0.05):
+            self.move_enemy([0, 0])
+
         if self.about_to_attack_time != 0:
             self.launch_attack()
         elif self.in_line_of_sight(player_rect, walls, False, camera):
@@ -493,7 +556,6 @@ class Enemy(Character):
         return True
 
 
-
 class PlayerUpgradeItem(Item):
     def __init__(self, images, x, y, stat, modifier):
         Item.__init__(self, images, x, y, 300, (WALL_SIZE * 0.7, WALL_SIZE * 0.7))
@@ -512,6 +574,7 @@ class MerchantItem(Item, ActionObject):
         self.price = price
         self.bought = False
         self.description = description
+
 
     def sell(self, player):
         if player.coins >= self.price >= 0:
@@ -547,6 +610,7 @@ class MerchantItem(Item, ActionObject):
                 screen.blit(description_text, (self.rect.centerx + camera.rect.x - description_text.get_width()//2,
                                                self.rect.y + camera.rect.y - (len(words) - i) * description_text.get_height() - 20))
 
+
 class Merchant(Character):
     def __init__(self, start_x, start_y):
         Character.__init__(self, start_x, start_y, load_images_from_folder("assets/merchant"), CHARACTER_SIZE * 0.96)
@@ -556,6 +620,11 @@ class Merchant(Character):
         it3 = self.create_random_player_upgrade(self.rect.x + 2 * WALL_SIZE, start_y + self.rect.height + 20)
 
         self.items_to_sell = [it1, it2, it3]
+
+        off_x = 10
+        off_y = 20
+        self.movement_collider = Collider((off_x//2, self.rect.height - off_y), (self.rect.width - off_x, off_y))
+        self.damage_collider = Collider((1, 1),(self.rect.width, self.rect.height), (255, 0, 0))
 
     def create_random_player_upgrade(self, pos_x, pos_y):
         image = [player_upgrades_images[random.randint(0, len(player_upgrades_images)-1)]]
