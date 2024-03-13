@@ -375,10 +375,8 @@ class Enemy(Character):
             self.attack_dir = None
             self.about_to_attack_time = 0
 
-
     def prepare_attack(self, player_rect):
-        distance_to_player = (self.rect.x - player_rect.x) ** 2 + (self.rect.y - player_rect.y) ** 2
-        if distance_to_player < 9000 and pg.time.get_ticks() - self.last_attack_time > self.attack_cooldown:
+        if pg.time.get_ticks() - self.last_attack_time > self.attack_cooldown:
             if abs(self.rect.x - player_rect.x) > abs((self.rect.y - player_rect.y)):
                 self.attack_dir = [math.copysign(1, player_rect.x - self.rect.x), 0]
             else:
@@ -410,16 +408,22 @@ class Enemy(Character):
                 self.flip_model_on_move(player_rect.x - self.rect.x)
                 self.spotted_time = pg.time.get_ticks()
 
+            self.last_known_player_position = (player_rect.x, player_rect.y)
             if self.spotted_time and pg.time.get_ticks() - self.spotted_time < self.spotted_wait_duration:
-                self.last_known_player_position = (player_rect.x, player_rect.y)
                 return
 
             self.spotted_time = None
 
-            self.move_in_direction((player_rect.x, player_rect.y), walls)
-            self.last_known_player_position = (player_rect.x, player_rect.y)
+            distance_to_player = (self.rect.x - player_rect.x) ** 2 + (self.rect.y - player_rect.y) ** 2
 
-            self.prepare_attack(player_rect)
+            if distance_to_player > 9000:
+                self.move_in_direction((player_rect.x, player_rect.y), walls)
+            else:
+                self.prepare_attack(player_rect)
+
+
+
+
 
         elif self.last_known_player_position:
             self.move_in_direction(self.last_known_player_position, walls)
