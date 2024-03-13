@@ -170,19 +170,18 @@ while running:
             for testedChar in characters:
                 if attackRect.colliderect(testedChar.damage_collider.collision_rect) and testedChar != char:
                     if testedChar == game.player:
-                        game.player.take_damage(1)
+                        game.player.take_damage(1, char)
                     else:
-                        testedChar.health -= dmg
+                        testedChar.take_damage(dmg, game.player)
+
                         if isinstance(testedChar, Enemy) and testedChar.health <= 0:
                             characters.remove(testedChar)
                             images = load_images_from_folder("assets/effects/explosion")
                             visuals.add(Visual(images, testedChar.rect.inflate(20, 20), pg.time.get_ticks(), 400))
-                    print('hit')
+
 
             char.attacks.remove(attack)
-
             images = load_images_from_folder("assets/effects/slash_attack")
-
             attackVisual = Visual(images, attackRect, attack['start_time'], attack['duration'], attack['flipped_x'], attack['flipped_y'])
 
             visuals.add(attackVisual)

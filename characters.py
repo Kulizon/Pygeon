@@ -7,8 +7,8 @@ from items import Item, Key
 from shared import WALL_SIZE, CHARACTER_SIZE, visuals, font, screen, walls, font_s
 from utility import Animated, load_images_from_folder, Visual, NotificationVisual, ActionObject, Collider, load_tileset
 
-player_images = load_tileset("assets/LATER_USE_USE_USE/player.png", 32, 32)
-player_upgrades_images = load_tileset("assets/LATER_USE_USE_USE/food.png", 16, 16)[0:35]
+player_images = load_tileset("assets/player_character/player.png", 32, 32)
+player_upgrades_images = load_tileset("assets/food.png", 16, 16)[0:35]
 
 
 class Character(pg.sprite.Sprite, Animated):
@@ -32,6 +32,24 @@ class Character(pg.sprite.Sprite, Animated):
         off_y = 40
         self.movement_collider = Collider((off_x // 2, self.rect.height - off_y), (self.rect.width - off_x, off_y // 2))
         self.damage_collider = Collider((self.rect.width//4, self.rect.height//4), (self.rect.width//2, self.rect.height//2), (255, 0, 0))
+
+    def take_damage(self, damage, enemy=None):
+        self.health -= damage
+
+        if enemy is None:
+            return
+
+        enemy_direction = [enemy.rect.centerx - self.rect.centerx, enemy.rect.centery - self.rect.centery]
+
+        length = max(abs(enemy_direction[0]), abs(enemy_direction[1]))
+        if length != 0:
+            enemy_direction = [enemy_direction[0] / length, enemy_direction[1] / length]
+
+        pushback_distance = 50
+        self.move_direction = [-enemy_direction[0], -enemy_direction[1]]
+        self.rect.x += self.move_direction[0] * pushback_distance
+        self.rect.y += self.move_direction[1] * pushback_distance
+
 
     def get_direction_index(self, direction):
         if direction[0] == 1:
@@ -173,11 +191,13 @@ class Player(Character):
                 self.flash_count += 1
                 self.harm_animation_start_time = pg.time.get_ticks()
 
-    def take_damage(self, damage):
+    def take_damage(self, damage, enemy=None):
         if self.mode == "dead" or self.mode == "dashing":
             return False
 
-        self.health -= damage
+        super().take_damage(damage, enemy)
+
+
         if self.health > 0:
             self.harm_animation_start_time = pg.time.get_ticks()
             self.flash_count = 0
