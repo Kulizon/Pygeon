@@ -84,6 +84,7 @@ class Animated():
         if pg.time.get_ticks() - self.last_frame_time > self.frame_duration:
             self.animate()
 
+
 class Visual(pg.sprite.Sprite, Animated):
     def __init__(self, images, rect, start_time, duration, flipped_x=False, flipped_y=False, rotate=0, iterations=1):
         pg.sprite.Sprite.__init__(self)
@@ -97,6 +98,15 @@ class Visual(pg.sprite.Sprite, Animated):
 
     def update(self, *args, **kwargs):
         self.animate_new_frame()
+
+        camera = args[0]
+
+        if camera:
+            rect = self.rect.move(camera.rect.x, camera.rect.y)
+            pg.draw.line(screen, (0, 0, 255), rect.topleft, rect.topright)
+            pg.draw.line(screen, (0, 0, 255), rect.bottomleft, rect.bottomright)
+            pg.draw.line(screen, (0, 0, 255), rect.topleft, rect.bottomleft)
+            pg.draw.line(screen, (0, 0, 255), rect.topright, rect.bottomright)
 
         if pg.time.get_ticks() - self.start_time > self.duration:
             # remove yourself from Group

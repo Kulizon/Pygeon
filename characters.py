@@ -8,7 +8,7 @@ from shared import WALL_SIZE, CHARACTER_SIZE, visuals, font, screen, walls, font
 from utility import Animated, load_images_from_folder, Visual, NotificationVisual, ActionObject, Collider, load_tileset
 
 player_images = load_tileset("assets/LATER_USE_USE_USE/player.png", 32, 32)
-player_upgrades_images = load_tileset("assets/LATER_USE_USE_USE/food.png", 16, 16)
+player_upgrades_images = load_tileset("assets/LATER_USE_USE_USE/food.png", 16, 16)[0:35]
 
 
 class Character(pg.sprite.Sprite, Animated):
@@ -20,6 +20,7 @@ class Character(pg.sprite.Sprite, Animated):
 
         Animated.__init__(self, images, (self.default_size, self.default_size), 200)
         self.last_attack_time = pg.time.get_ticks()
+        self.attack_size = self.default_size
         self.attack_cooldown = 0
         self.rect = self.image.get_rect(topleft=(x + CHARACTER_SIZE // 2, y + CHARACTER_SIZE // 2))
 
@@ -50,25 +51,26 @@ class Character(pg.sprite.Sprite, Animated):
             self.flipped_x = False
             self.animate()
 
-    def slash_attack(self, direction, scale, distance_from_attack_scale=1):
+    def slash_attack(self, direction, scale):
         if pg.time.get_ticks() - self.last_attack_time < self.attack_cooldown:
             return
 
         self.last_attack_time = pg.time.get_ticks()
 
-        size = self.default_size
+        size = self.attack_size * 2
         if direction[1] == 1:
+            print(1)
             dim = (size * 3, size)
-            dest = (self.rect.x - size, self.rect.y - size/2 * distance_from_attack_scale)
+            dest = (self.damage_collider.collision_rect.centerx - dim[0]//4, self.damage_collider.collision_rect.centery - self.damage_collider.collision_size[1] - dim[1]//2)
         elif direction[1] == -1:
             dim = (size * 3, size)
-            dest = (self.rect.x - size, self.rect.y + size/2 * distance_from_attack_scale)
+            dest = (self.damage_collider.collision_rect.centerx - dim[0]//4, self.damage_collider.collision_rect.centery + self.damage_collider.collision_size[1])
         elif direction[0] == -1:
             dim = (size, size * 3)
-            dest = (self.rect.x - size/2 * distance_from_attack_scale, self.rect.y - size)
+            dest = (self.damage_collider.collision_rect.centerx - self.damage_collider.collision_size[0] - dim[0]//2, self.damage_collider.collision_rect.centery - dim[1]//4)
         elif direction[0] == 1:
             dim = (size, size * 3)
-            dest = (self.rect.x + size/2 * distance_from_attack_scale, self.rect.y - size)
+            dest = (self.damage_collider.collision_rect.centerx + self.damage_collider.collision_size[0], self.damage_collider.collision_rect.centery - dim[1]//4)
         else:
             return
 
@@ -81,7 +83,7 @@ class Character(pg.sprite.Sprite, Animated):
             'start_time': pg.time.get_ticks(),
             'duration': 150,
             'flipped_x': direction[0] == -1 or direction[1] == -1,
-            'flipped_y': direction[1] == 1 or direction[0] == 0,
+            'flipped_y': (direction[0] == 0 and direction[1] != -1),
             "damage": 34
         }
 
@@ -139,6 +141,7 @@ class Player(Character):
 
     def stop_attacking(self):
         self.frame_duration = self.normal_frame_duration
+        self.change_images(self.idle_images[self.get_direction_index(self.move_direction)])
         self.mode = "idle"
 
     def update(self, camera, *args, **kwargs):
@@ -164,12 +167,11 @@ class Player(Character):
         self.harm_animation_start_time = pg.time.get_ticks()
         self.flash_count = 0
 
-    def slash_attack(self, direction, scale, distance_from_attack_scale=1):
+    def slash_attack(self, direction, scale):
         if self.is_dashing():
             return
 
-        super().slash_attack(direction, scale, distance_from_attack_scale)
-        print(direction, scale)
+        super().slash_attack(direction, scale)
         self.mode = "attacking"
         self.frame_duration = self.attack_frame_duration
         i = self.get_direction_index(direction)
@@ -280,15 +282,14 @@ class Player(Character):
         if isinstance(item, PlayerUpgradeItem):
             if item.stat == "movement_speed":
                 self.speed *= item.modifier
-
             elif item.stat == "attack_speed":
-                self.speed *= item.modifier
+                self.attack_cooldown *= item.modifier
             elif item.stat == "dash_length":
-                self.speed *= item.modifier
+                self.dash_frame_duration *= item.modifier
             elif item.stat == "dash_regeneration_speed":
-                self.speed *= item.modifier
+                self.dash_cooldown *= item.modifier
             elif item.stat == "attack_size":
-                self.speed *= item.modifier
+                self.attack_size *= item.modifier
 
 
 class Enemy(Character):
@@ -353,7 +354,7 @@ class Enemy(Character):
 
     def launch_attack(self):
         if self.attack_dir and pg.time.get_ticks() - self.about_to_attack_time > 500:
-            self.slash_attack(self.attack_dir, 0.8, 2)
+            self.slash_attack(self.attack_dir, 0.8)
             self.attack_dir = None
             self.about_to_attack_time = 0
 
@@ -505,8 +506,8 @@ class Merchant(Character):
     def __init__(self, start_x, start_y):
         Character.__init__(self, start_x, start_y, load_images_from_folder("assets/merchant"), CHARACTER_SIZE * 0.96)
 
-        it1 = MerchantItem(Key(self.rect.x - 2 * WALL_SIZE, start_y + self.rect.height + 20), 5)
-        it2 = MerchantItem(Key(self.rect.x, start_y + self.rect.height + 20), 0)
+        it1 = self.create_random_player_upgrade(self.rect.x - 2 * WALL_SIZE, start_y + self.rect.height + 20)
+        it2 = self.create_random_player_upgrade(self.rect.x, start_y + self.rect.height + 20)
         it3 = self.create_random_player_upgrade(self.rect.x + 2 * WALL_SIZE, start_y + self.rect.height + 20)
 
         self.items_to_sell = [it1, it2, it3]
@@ -515,16 +516,23 @@ class Merchant(Character):
         image = [player_upgrades_images[random.randint(0, len(player_upgrades_images)-1)]]
 
         stats = {
-            "movement_speed": [1, 2],
-            "attack_speed": [1, 2],
-            "dash_regeneration_speed": [1, 2],
-            "dash_length": [1, 2],
-            "attack_size": [1, 2],
+            "movement_speed": [1.05, 1.1],
+            "attack_speed": [0.92, 0.96],
+            "dash_regeneration_speed": [0.92, 0.96],
+            "dash_length": [1.05, 1.15],
+            "attack_size": [1.05, 1.2],
         }
 
         stat = random.choice(list(stats.keys()))
         modifier_range = stats[stat]
+
+        modifier_range = list(map(lambda x: x * 2, modifier_range))
+
+
         modifier = random.uniform(modifier_range[0], modifier_range[1])
+
+        print(modifier)
+
 
         price = random.randint(0, 20) + 10
         description = "Increase " + " ".join(stat.split("_"))

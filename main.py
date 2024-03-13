@@ -159,8 +159,8 @@ while running:
             dmg = attack['damage']
 
             attackRect = effect.get_rect()
-            attackRect.x = dest[0]
-            attackRect.y = dest[1]
+            attackRect.centerx = dest[0]
+            attackRect.centery = dest[1]
 
             if char == game.player:
                 for chest in chests:
@@ -190,7 +190,7 @@ while running:
 
     display_ui(game.player.coins, game.player.health, gmap.discovered_mini_map, gmap.current_mini_map_cell, game.player.number_of_keys, defeat_timer_seconds, fps)
 
-    visuals.update()
+    visuals.update(game.camera)
     decorations.update()
     traps.update(game.player)
     items.update(game.player)
