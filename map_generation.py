@@ -270,6 +270,12 @@ def generate_chest(room_layout, decorations_layout, x_off, y_off, to_add=1):
         room_tile_id = room_layout[row][col]
         decorations_tile_id = decorations_layout[row][col]
 
+        # generate in the middle of room (kinda)
+        row_border_indexes = [0, 1, 2, room_width-1, room_width-2, room_width-3]
+        col_border_indexes = [0, 1, 2, room_height-1, room_height-2, room_height-3]
+        if row in row_border_indexes or col in col_border_indexes:
+            return False
+
         if room_tile_id != void_tile_id and room_tile_id not in wall_ids and decorations_tile_id == -1:
             chest = Chest(pos_x * WALL_SIZE, pos_y * WALL_SIZE, 10, 0)
             items.add(chest)
@@ -279,79 +285,95 @@ def generate_chest(room_layout, decorations_layout, x_off, y_off, to_add=1):
 
     traverse_rooms_in_random_order(room_layout, decorations_layout, x_off, y_off, place_chest, to_add)
 
+
 def generate_map(room_map):
     empty_decorations_layout = [[-1 for _ in range(room_height)] for _ in range(room_width)]
     furthest_room_id = find_furthest_room(room_map)
 
-    for i in range(len(room_map)):
-        for j in range(len(room_map[0])):
-            room_id = room_map[i][j]
-            x_off = room_width * j
-            y_off = room_height * i
+    number_of_added = {
+        "chests": 0,
+    }
 
-            if room_id == 0:
-                continue
-            elif room_id == 1:
-                room_layout = deepcopy(room_tile_maps[0][0])
-                decorations_layout = deepcopy(room_tile_maps[0][1])
+    indices = [(i, j) for i in range(len(room_map)) for j in range(len(room_map[0]))]
+
+    for i, j in indices:
+        room_id = room_map[i][j]
+        x_off = room_width * j
+        y_off = room_height * i
+
+        if room_id == 0:
+            continue
+        elif room_id == 1:
+            room_layout = deepcopy(room_tile_maps[0][0])
+            decorations_layout = deepcopy(room_tile_maps[0][1])
+        else:
+            random_room_index = random.randint(0, 5)
+            room_layout = deepcopy(room_tile_maps[random_room_index][0])
+            if random_room_index != 0:
+                decorations_layout = deepcopy(room_tile_maps[random_room_index][1])
             else:
-                random_room_index = random.randint(0, 5)
-                room_layout = deepcopy(room_tile_maps[random_room_index][0])
-                if random_room_index != 0:
-                    decorations_layout = deepcopy(room_tile_maps[random_room_index][1])
-                else:
-                    decorations_layout = empty_decorations_layout
+                decorations_layout = empty_decorations_layout
 
-            make_doorways(i, j, room_map, room_layout)
+        make_doorways(i, j, room_map, room_layout)
 
-            # generate key if is the furthest room
-            if room_id == furthest_room_id:
-                generate_key(room_layout, decorations_layout, x_off, y_off)
+        # generate key if is the furthest room
+        if room_id == furthest_room_id:
+            generate_key(room_layout, decorations_layout, x_off, y_off)
 
+        # generate traps and items
+        if room_id != 1:
+            for prob in [1, 0.5, 0.25]:
+                if random.random() < prob:
+                    generate_flamethrower(room_layout, decorations_layout, x_off, y_off)
+            for prob in [0.7, 0.4, 0.25]:
+                if random.random() < prob:
+                    generate_arrow_trap(room_layout, decorations_layout, x_off, y_off)
 
-            # generate traps and items
-            if room_id != 1:
-                generate_flamethrower(room_layout, decorations_layout, x_off, y_off)
-                generate_arrow_trap(room_layout, decorations_layout, x_off, y_off)
-                generate_spike_trap(room_layout, decorations_layout, x_off, y_off, 3)
+            generate_spike_trap(room_layout, decorations_layout, x_off, y_off, random.randint(0, 4))
+
+            if number_of_added["chests"] < 3 \
+                    or (3 <= number_of_added["chests"] <= 10 and random.random() < 0.3) \
+                    or (10 < number_of_added["chests"] and random.random() < 0.15):
                 generate_chest(room_layout, decorations_layout, x_off, y_off)
+                number_of_added["chests"] += 1
 
-            # generate sprites
-            for row in range(len(room_layout)):
-                for col in range(len(room_layout[row])):
-                    pos_x = col + x_off
-                    pos_y = row + y_off
 
-                    room_tile_id = room_layout[row][col]
-                    decorations_tile_id = decorations_layout[row][col]
-                    if not(0 <= room_tile_id < len(tiles_images)):
-                        continue
+        # generate sprites
+        for row in range(len(room_layout)):
+            for col in range(len(room_layout[row])):
+                pos_x = col + x_off
+                pos_y = row + y_off
 
-                    if room_tile_id in wall_ids:
-                        walls.add(MapTile(tiles_images[room_tile_id], pos_x, pos_y))
-                    else:
-                        ground.add(MapTile(tiles_images[room_tile_id], pos_x, pos_y))
+                room_tile_id = room_layout[row][col]
+                decorations_tile_id = decorations_layout[row][col]
+                if not(0 <= room_tile_id < len(tiles_images)):
+                    continue
 
-                    if not(0 <= decorations_tile_id < len(tiles_images)):
-                        continue
+                if room_tile_id in wall_ids:
+                    walls.add(MapTile(tiles_images[room_tile_id], pos_x, pos_y))
+                else:
+                    ground.add(MapTile(tiles_images[room_tile_id], pos_x, pos_y))
 
-                    animations_images_data = {
-                        74: ["assets/items_and_traps_animations/flag", 350],
-                        93: ["assets/items_and_traps_animations/candlestick_1", 250],
-                        95: ["assets/items_and_traps_animations/candlestick_2", 250],
-                        90: ["assets/items_and_traps_animations/torch_front", 250],
-                        91: ["assets/items_and_traps_animations/torch_sideways", 250],
-                    }
+                if not(0 <= decorations_tile_id < len(tiles_images)):
+                    continue
 
-                    if decorations_tile_id in animations_images_data:
-                        path, time = animations_images_data[decorations_tile_id]
-                        obj = AnimatedMapTile(path, pos_x, pos_y, time)
-                    elif decorations_tile_id == 38:
-                        obj = Trapdoor(pos_x, pos_y)
-                    else:
-                        obj = MapTile(tiles_images[decorations_tile_id], pos_x, pos_y)
+                animations_images_data = {
+                    74: ["assets/items_and_traps_animations/flag", 350],
+                    93: ["assets/items_and_traps_animations/candlestick_1", 250],
+                    95: ["assets/items_and_traps_animations/candlestick_2", 250],
+                    90: ["assets/items_and_traps_animations/torch_front", 250],
+                    91: ["assets/items_and_traps_animations/torch_sideways", 250],
+                }
 
-                    decorations.add(obj)
+                if decorations_tile_id in animations_images_data:
+                    path, time = animations_images_data[decorations_tile_id]
+                    obj = AnimatedMapTile(path, pos_x, pos_y, time)
+                elif decorations_tile_id == 38:
+                    obj = Trapdoor(pos_x, pos_y)
+                else:
+                    obj = MapTile(tiles_images[decorations_tile_id], pos_x, pos_y)
+
+                decorations.add(obj)
 
     map_width_px = len(room_map[0]) * WALL_SIZE * room_width
     map_height_px = len(room_map) * WALL_SIZE * room_height

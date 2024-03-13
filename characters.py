@@ -134,7 +134,7 @@ class Player(Character):
 
         self.number_of_keys = 10
         self.coins = 1595
-        self.health = 1
+        self.health = 4
         self.is_next_level = False
 
     def is_dashing(self):

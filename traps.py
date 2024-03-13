@@ -49,7 +49,7 @@ class FlamethrowerTrap(Trap):
         size[0] *= 0.8
         size[1] *= 0.8
 
-        super().__init__(images_path, x + x_off, y + y_off, 150, 1000, attack_dir, size, rotate)
+        super().__init__(images_path, x + x_off, y + y_off, 150, 700 + random.random() * 500, attack_dir, size, rotate)
 
     def update(self, *args, **kwargs):
         self.damage = 0 if (self.cur_frame in [0, self.last_frame, self.last_frame-1] or self.already_hit) else 1
@@ -71,7 +71,7 @@ class ArrowTrap(Trap):
 
         rotate = 180 if attack_dir[0] == 1 else 0
 
-        Trap.__init__(self, images_path, x, y, 30, 2000, attack_dir, size, rotate)
+        Trap.__init__(self, images_path, x, y, 30, 1700 + random.random() * 500, attack_dir, size, rotate)
         self.rect = self.rect.move(14 * attack_dir[0], 0)
         self.arrows = []
 
@@ -112,7 +112,7 @@ class SpikeTrap(Trap):
         size = (WALL_SIZE * 0.8, WALL_SIZE * 0.8)
         images_path = "assets/items_and_traps_animations/peaks"
 
-        Trap.__init__(self, images_path, x + WALL_SIZE * 0.1, y + WALL_SIZE * 0.1, 50, 1500, [0, 0], size)
+        Trap.__init__(self, images_path, x + WALL_SIZE * 0.1, y + WALL_SIZE * 0.1, 50, 1000 + random.random() * 500, [0, 0], size)
         self.spikes_up_time = 600
         self.spikes_went_up_time = None
         self.spikes_up_frame_num = 2
