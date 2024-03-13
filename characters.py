@@ -57,7 +57,7 @@ class Character(pg.sprite.Sprite, Animated):
 
         self.last_attack_time = pg.time.get_ticks()
 
-        size = self.attack_size * 2
+        size = self.attack_size
         if direction[1] == 1:
             print(1)
             dim = (size * 3, size)
@@ -101,7 +101,6 @@ class Character(pg.sprite.Sprite, Animated):
         self.animate()
 
 
-
 class Player(Character):
     def __init__(self, start_x, start_y):
         Character.__init__(self, start_x, start_y, player_images[0:4], CHARACTER_SIZE * 1.6)
@@ -114,6 +113,7 @@ class Player(Character):
         self.last_dash_time = pg.time.get_ticks()
         self.dash_cooldown = 200
         self.dash_frame_duration = 80
+        self.death_frame_duration = 135
         self.normal_frame_duration = self.frame_duration
         self.attack_frame_duration = 80
 
@@ -125,15 +125,16 @@ class Player(Character):
         self.walking_images = [player_images[10:18], player_images[20:28], player_images[30:38], player_images[40:48]]
         self.dashing_images = [player_images[110:118], player_images[110]]
         self.attack_images = [player_images[160:166], player_images[170:176], player_images[180:186], player_images[190:196]]
+        self.death_images = [player_images[150:158]]
 
         self.harm_animation_duration = 150
         self.harm_animation_start_time = pg.time.get_ticks()
         self.max_flash_count = 11
         self.flash_count = self.max_flash_count
 
-        self.number_of_keys = 0
-        self.coins = 100
-        self.health = 10
+        self.number_of_keys = 10
+        self.coins = 1595
+        self.health = 1
         self.is_next_level = False
 
     def is_dashing(self):
@@ -145,7 +146,17 @@ class Player(Character):
         self.mode = "idle"
 
     def update(self, camera, *args, **kwargs):
+        if self.mode == "dead" and self.cur_frame == self.last_frame:
+            return
+
         super().update(camera)
+
+        if self.health <= 0 and self.mode != "dead":
+            self.change_images(self.death_images[0])
+            self.mode = "dead"
+            self.frame_duration = self.death_frame_duration
+            return
+
         self.update_dash()
 
         if self.mode == "attacking" and self.cur_frame == self.last_frame:
@@ -163,9 +174,13 @@ class Player(Character):
                 self.harm_animation_start_time = pg.time.get_ticks()
 
     def take_damage(self, damage):
+        if self.mode == "dead":
+            return
+
         self.health -= damage
-        self.harm_animation_start_time = pg.time.get_ticks()
-        self.flash_count = 0
+        if self.health > 0:
+            self.harm_animation_start_time = pg.time.get_ticks()
+            self.flash_count = 0
 
     def slash_attack(self, direction, scale):
         if self.is_dashing():
@@ -195,7 +210,7 @@ class Player(Character):
         obstacles = walls
         self.movement_collider.update(self.rect)
 
-        if (self.is_dashing() and not ignore_dash_check) or (self.mode == "idle" and dx == 0 and dy == 0):
+        if (self.mode == "dead") or (self.is_dashing() and not ignore_dash_check) or (self.mode == "idle" and dx == 0 and dy == 0):
             return
 
         if dx == 0 and dy == 0:
@@ -273,7 +288,7 @@ class Player(Character):
         self.change_images(self.dashing_images[0])
 
         dash_rotation = 90 if self.move_direction[1] < 0 else -90 if self.move_direction[1] > 0 else 0
-        visuals.add(Visual(self.dash_animation_images, self.rect.copy(), pg.time.get_ticks(), 200, not self.flipped_x, rotate=dash_rotation))
+        visuals.add(Visual(self.dash_animation_images, self.damage_collider.collision_rect.copy(), pg.time.get_ticks(), 200, not self.flipped_x, rotate=dash_rotation))
 
     def add_item(self, item):
         if isinstance(item, Key):
@@ -525,10 +540,7 @@ class Merchant(Character):
 
         stat = random.choice(list(stats.keys()))
         modifier_range = stats[stat]
-
-        modifier_range = list(map(lambda x: x * 2, modifier_range))
-
-
+        modifier_range = list(map(lambda x: x * 1, modifier_range))
         modifier = random.uniform(modifier_range[0], modifier_range[1])
 
         print(modifier)

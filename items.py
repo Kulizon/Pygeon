@@ -27,7 +27,8 @@ class Key(Item):
 
 class Chest(Item):
     def __init__(self, x, y, coins, health_potions):
-        Item.__init__(self, load_images_from_folder("assets/items_and_traps_animations/chest/normal"), x, y, 280, (WALL_SIZE * 0.8, WALL_SIZE * 0.8))
+        self.default_size = WALL_SIZE * 0.8
+        Item.__init__(self, load_images_from_folder("assets/items_and_traps_animations/chest/normal"), x, y, 280, (self.default_size, self.default_size))
 
         self.open_chest_images = load_images_from_folder("assets/items_and_traps_animations/chest/open")
         self.coins = coins
@@ -35,19 +36,34 @@ class Chest(Item):
         self.opened = False
         self.added_visual = False
 
+        self.last_flash_time = 0
+        self.flash_count = 0
+        self.max_flash_count = 14
+
     def update(self, player, *args, **kwargs):
-        if self.opened and self.cur_frame == self.last_frame and not self.added_visual:
+        if not self.added_visual or self.flash_count < self.max_flash_count:
+            super().update(args, kwargs)
+
+        if not self.opened:
+            return
+
+        if self.flash_count < self.max_flash_count and pg.time.get_ticks() - self.last_flash_time > 140:
+            self.animate()
+            self.flash_count += 1
+            self.last_flash_time = pg.time.get_ticks()
+
+        if self.cur_frame == self.last_frame and not self.added_visual:
             visuals.add(NotificationVisual(load_images_from_folder("assets/items_and_traps_animations/coin"), self.rect.move(-WALL_SIZE * 0.1, -60), True, 1600, iterations=3))
             player.coins += random.randint(10, 25)
             self.added_visual = True
-        elif not self.added_visual:
-            super().update(args, kwargs)
+
 
     def open(self):
         if not self.opened:
             self.cur_frame = 0
             self.images = self.open_chest_images
             self.opened = True
+            self.last_flash_time = pg.time.get_ticks()
 
 
 class Trapdoor(MapTile, ActionObject):

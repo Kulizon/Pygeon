@@ -53,11 +53,29 @@ def connect_rooms(rooms):
             random.shuffle(adjacent_positions)
             for adj_position in adjacent_positions:
                 if is_valid_position(map, adj_position) and is_room_position_empty(map, adj_position):
-                    place_room(map, rooms[room_index], adj_position)
-                    connected_rooms.append(adj_position)
-                    placed = True
-                    break
+                    number_of_adjacent_rooms = count_adjacent_rooms(map, adj_position)
+
+                    if (number_of_adjacent_rooms == 4 and random.random() < 0.25) \
+                        or (number_of_adjacent_rooms == 3 and random.random() < 0.5) \
+                        or (number_of_adjacent_rooms <= 2):
+                            place_room(map, rooms[room_index], adj_position)
+                            connected_rooms.append(adj_position)
+                            placed = True
+                            break
+
+        if not placed:
+            print("Could not place room at index", room_index)
     return map
+
+
+def count_adjacent_rooms(map, position):
+    row, col = position
+    count = 0
+    for i in range(row - 1, row + 2):
+        for j in range(col - 1, col + 2):
+            if (i != row or j != col) and map[i][j] != 0:
+                count += 1
+    return count
 
 def is_empty_space(layout, decorations_layout, x, y):
     return (0 <= y < len(layout) and (0 <= x < len(layout[y])

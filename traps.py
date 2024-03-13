@@ -71,7 +71,7 @@ class ArrowTrap(Trap):
 
         rotate = 180 if attack_dir[0] == 1 else 0
 
-        Trap.__init__(self, images_path, x, y, 40, 2000, attack_dir, size, rotate)
+        Trap.__init__(self, images_path, x, y, 30, 2000, attack_dir, size, rotate)
         self.rect = self.rect.move(14 * attack_dir[0], 0)
         self.arrows = []
 
