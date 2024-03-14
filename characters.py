@@ -161,9 +161,9 @@ class Character(pg.sprite.Sprite, Animated):
         self.velocity_x *= (1 - self.friction)
         self.velocity_y *= (1 - self.friction)
 
-        # if isinstance(self, Player):
-        #     print("if possible move")
-        #     print(dx, dy, self.velocity_x, self.velocity_y)
+        if isinstance(self, Enemy):
+            print("if possible move")
+            print(dx, dy, self.velocity_x, self.velocity_y, self.friction)
 
         min_velocity = 0.1
         if abs(self.velocity_y) < min_velocity:
@@ -186,6 +186,10 @@ class Character(pg.sprite.Sprite, Animated):
         dy = math.copysign(math.ceil(abs(dy)), dy)
         new_rect = self.movement_collider.collision_rect.move(dx, dy)
 
+        if isinstance(self, Enemy):
+            print("if possible move")
+            print(dx, dy, self.velocity_x, self.velocity_y, self.friction)
+
         if dx == 0 and dy == 0:
             self.friction = self.default_friction
             return False
@@ -195,7 +199,9 @@ class Character(pg.sprite.Sprite, Animated):
             if obj.rect.colliderect(new_rect) and obj != self:
                 is_collision = True
                 break
+
         if not is_collision:
+            print("moved")
             self.rect.x += dx
             self.rect.y += dy
         else:
@@ -459,6 +465,10 @@ class Enemy(Character):
         dx, dy = self.update_move_values(dx, dy)
         self.flip_model_on_move(dx)
 
+        if self.took_damage:
+            dx = 0
+            dy = 0
+
         moved = self.move_if_possible(dx, dy)
 
         if not moved or (dx and dy == 0):
@@ -582,8 +592,9 @@ class SkeletonScytheEnemy(Enemy, SlashAttacker):
 class SkeletonEnemy(Enemy, SlashAttacker):
     def __init__(self, x, y):
         Enemy.__init__(self, x, y)
+        self.speed = 6
         self.attack_cooldown = 1000
-        self.distance_prepare_attack = 1000
+        self.distance_prepare_attack = 900
         self.about_to_attack_time_cooldown = 0
 
     def attack_function(self):
