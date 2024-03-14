@@ -2,7 +2,7 @@ from copy import deepcopy
 import pygame as pg
 from characters import Player, Merchant, Enemy
 from map_generation import connect_rooms, generate_map
-from shared import WALL_SIZE, characters, CHARACTER_SIZE
+from shared import WALL_SIZE, characters, CHARACTER_SIZE, ground, walls, decorations, items, traps, visuals
 from ui import trim_matrix
 from utility import Camera
 
@@ -23,19 +23,23 @@ class Map():
         self.width_px = w
         self.height_px = h
 
-        self.current_mini_map_cell = 0
+        self.current_map_cell = 0
 
     def update(self, player):
         new_cell = self.room_map[int(player.rect.y // WALL_SIZE // 16)][int(player.rect.x // WALL_SIZE // 16)]
-        if self.current_mini_map_cell != new_cell:
+
+        if self.current_map_cell != new_cell:
+            #update mini-map
             for y, row in enumerate(self.mini_map):
                 for x, el in enumerate(row):
                     if el == new_cell:
                         self.discovered_mini_map[y][x] = new_cell
-
-        self.current_mini_map_cell = self.room_map[int(player.rect.y // WALL_SIZE // 16)][
-            int(player.rect.x // WALL_SIZE // 16)]
-        return
+            self.current_map_cell = new_cell
+            return True
+        else:
+            self.current_map_cell = new_cell
+            # update the decorations and etc to the ones within the room
+            return False
 
 
 class Game():
@@ -56,6 +60,20 @@ class Game():
         ch1 = Enemy(gmap.width_px // 2, gmap.height_px // 2 + 220)
         characters.add(self.player, ch1, merchant)
         #characters.add(self.player, self.merchant)
+
+
+    def clear_groups(self):
+        groups = [ground, walls, decorations, items, traps, visuals]
+        for grp in groups:
+            grp.empty()
+
+    def render_appropriate_room(self):
+        #self.clear_groups()
+        pass
+
+        # changed the place where objects end up in in map_generation.py
+        # from this map i think select the appropriate room with self.current_map_cell
+        # add to decorations, walls, traps etc.
 
 
 

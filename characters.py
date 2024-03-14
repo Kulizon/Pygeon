@@ -460,7 +460,7 @@ class Enemy(Character):
             self.roam_wait_time = random.randint(1500, 2500)
 
     def launch_attack(self):
-        if self.attack_dir and pg.time.get_ticks() - self.about_to_attack_time > 250:
+        if self.attack_dir and pg.time.get_ticks() - self.about_to_attack_time > 180:
             self.slash_attack(self.attack_dir, 0.8)
             self.attack_dir = None
             self.about_to_attack_time = 0
@@ -487,7 +487,6 @@ class Enemy(Character):
             self.roam_position = (random_point.x, random_point.y)
 
     def handle_spotting(self, player_rect):
-
         if self.last_known_player_position is None and self.spotted_time is None:
             visuals.add(NotificationVisual(load_images_from_folder("assets/effects/spotted"), self.rect.move(0, -60)))
             self.flip_model_on_move(player_rect.x - self.rect.x)
@@ -500,7 +499,7 @@ class Enemy(Character):
         self.spotted_time = None
         distance_to_player = (self.rect.x - player_rect.x) ** 2 + (self.rect.y - player_rect.y) ** 2
 
-        if distance_to_player > 9000:
+        if distance_to_player > 12000:
             self.move_enemy((player_rect.x, player_rect.y))
         else:
             self.prepare_attack(player_rect)
@@ -563,6 +562,8 @@ class Enemy(Character):
 class PlayerUpgradeItem(Item):
     def __init__(self, images, x, y, stat, modifier):
         Item.__init__(self, images, x, y, 300, (WALL_SIZE * 0.7, WALL_SIZE * 0.7))
+        self.rect.x = x
+        self.rect.y = y
         self.stat = stat
         self.modifier = modifier
 
@@ -578,7 +579,6 @@ class MerchantItem(Item, ActionObject):
         self.price = price
         self.bought = False
         self.description = description
-
 
     def sell(self, player):
         if player.coins >= self.price >= 0:
@@ -619,16 +619,16 @@ class Merchant(Character):
     def __init__(self, start_x, start_y):
         Character.__init__(self, start_x, start_y, load_images_from_folder("assets/merchant"), CHARACTER_SIZE * 0.96)
 
-        it1 = self.create_random_player_upgrade(self.rect.x - 2 * WALL_SIZE, start_y + self.rect.height + 20)
-        it2 = self.create_random_player_upgrade(self.rect.x, start_y + self.rect.height + 20)
-        it3 = self.create_random_player_upgrade(self.rect.x + 2 * WALL_SIZE, start_y + self.rect.height + 20)
+        it1 = self.create_random_player_upgrade(self.rect.x - 2 * WALL_SIZE, start_y + self.rect.height + 40)
+        it2 = self.create_random_player_upgrade(self.rect.x, start_y + self.rect.height + 40)
+        it3 = self.create_random_player_upgrade(self.rect.x + 2 * WALL_SIZE, start_y + self.rect.height + 40)
 
         self.items_to_sell = [it1, it2, it3]
 
         off_x = 10
         off_y = 20
         self.movement_collider = Collider((off_x//2, self.rect.height - off_y), (self.rect.width - off_x, off_y))
-        self.damage_collider = Collider((1, 1),(self.rect.width, self.rect.height), (255, 0, 0))
+        self.damage_collider = Collider((1, 1), (self.rect.width, self.rect.height), (255, 0, 0))
 
     def create_random_player_upgrade(self, pos_x, pos_y):
         image = [player_upgrades_images[random.randint(0, len(player_upgrades_images)-1)]]

@@ -18,19 +18,17 @@ game = Game(gmap)
 
 
 def generate_new_level(current_player):
-    game_objs_grps = [ground, walls, decorations, items, traps, visuals]
-    for grp in game_objs_grps:
-        grp.empty()
+    global game
+    global gmap
+
+    game.clear_groups()
 
     if not current_player:
         characters.empty()
     else:
         characters.remove([char for char in characters.sprites() if not isinstance(char, Player)])
 
-    global gmap
     gmap = Map()
-
-    global game
     game = Game(gmap, current_player)
 
 
@@ -184,15 +182,17 @@ while running:
 
             visuals.add(attackVisual)
 
-
-    display_ui(game.player.coins, game.player.health, gmap.discovered_mini_map, gmap.current_mini_map_cell, game.player.number_of_keys, defeat_timer_seconds, fps)
+    display_ui(game.player.coins, game.player.health, gmap.discovered_mini_map, gmap.current_map_cell, game.player.number_of_keys, defeat_timer_seconds, fps)
 
     visuals.update(game.camera)
     decorations.update()
     traps.update(game.player)
     items.update(game.player)
     characters.update(game.camera, game.player.rect)
-    gmap.update(game.player)
+    current_room_changed = gmap.update(game.player)
+
+    if current_room_changed:
+        game.render_appropriate_room()
 
     if game.player.is_next_level:
         game.player.is_next_level = False

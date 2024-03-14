@@ -34,6 +34,7 @@ def trim_matrix(matrix):
 
     return trimmed_matrix
 
+
 def display_health(health):
     for i in range(health):
         screen.blit(heart_image, (10 + i * 40, 10))
@@ -114,6 +115,7 @@ def display_mini_map(map, current_cell):
             color = (255, 0, 0) if cell_value == current_cell else (0, 255, 0) if cell_value != 0 else (0, 0, 0)
             pg.draw.rect(screen, color, (display_x, display_y, cell_width, cell_height))
 
+
 def display_keys(number_of_keys):
     screen.blit(key_animated.image, (10, 92))
 
@@ -121,6 +123,7 @@ def display_keys(number_of_keys):
     screen.blit(text, (50, 90))
 
     key_animated.animate_new_frame()
+
 
 def display_timer(timer_seconds):
     mini_map_size = 140
