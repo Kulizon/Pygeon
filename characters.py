@@ -149,19 +149,13 @@ class Character(pg.sprite.Sprite, Animated):
     def move_if_possible(self, dx, dy):
         self.movement_collider.update(self.rect)
 
-        if dx < 0:
-            self.velocity_x += dx
-        elif dx > 0:
-            self.velocity_x += dx
-        if dy < 0:
-            self.velocity_y += dy
-        elif dy > 0:
-            self.velocity_y += dy
+        self.velocity_x += dx
+        self.velocity_y += dy
 
         self.velocity_x *= (1 - self.friction)
         self.velocity_y *= (1 - self.friction)
 
-        if isinstance(self, Enemy):
+        if isinstance(self, Player):
             print("if possible move")
             print(dx, dy, self.velocity_x, self.velocity_y, self.friction)
 
@@ -171,7 +165,7 @@ class Character(pg.sprite.Sprite, Animated):
         if abs(self.velocity_x) < min_velocity:
             self.velocity_x = 0
 
-        if self.took_damage and abs(self.velocity_y) + abs(self.velocity_x) < 2:
+        if self.took_damage and abs(self.velocity_y) + abs(self.velocity_x) < 1:
             self.took_damage = False
             self.friction = self.default_friction
             self.acceleration = self.default_acceleration
@@ -186,10 +180,6 @@ class Character(pg.sprite.Sprite, Animated):
         dy = math.copysign(math.ceil(abs(dy)), dy)
         new_rect = self.movement_collider.collision_rect.move(dx, dy)
 
-        if isinstance(self, Enemy):
-            print("if possible move")
-            print(dx, dy, self.velocity_x, self.velocity_y, self.friction)
-
         if dx == 0 and dy == 0:
             self.friction = self.default_friction
             return False
@@ -201,7 +191,6 @@ class Character(pg.sprite.Sprite, Animated):
                 break
 
         if not is_collision:
-            print("moved")
             self.rect.x += dx
             self.rect.y += dy
         else:
@@ -370,7 +359,7 @@ class Player(SlashAttacker):
 
     def move_player(self, dx, dy, ignore_dash_check=False):
         if (self.mode == "dead") or (self.is_dashing() and not ignore_dash_check) or \
-                (self.mode == "idle" and dx == 0 and dy == 0):
+                (self.mode == "idle" and dx == 0 and dy == 0 and not self.took_damage):
             return
 
         # fix insane acceleration
@@ -380,6 +369,10 @@ class Player(SlashAttacker):
 
         self.change_idle_images(dx, dy)
         dx, dy = self.update_move_values(dx, dy)
+
+        if self.took_damage:
+            dx = 0
+            dy = 0
 
         self.change_walking_images(dx, dy)
         moved = self.move_if_possible(dx, dy)
