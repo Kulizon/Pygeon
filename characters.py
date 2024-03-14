@@ -161,22 +161,28 @@ class Character(pg.sprite.Sprite, Animated):
 
     def change_walking_images(self, dx, dy):
         new_move_direction = (0 if dx == 0 else math.copysign(1, dx), 0 if dy == 0 else math.copysign(1, dy))
+
+        if new_move_direction[0] == 0 and new_move_direction[1] == 0:
+            return
+
         if self.mode == "idle" or (new_move_direction[0] != self.move_direction[0] or new_move_direction[1] != self.move_direction[1]):
             self.move_direction = new_move_direction
             if self.mode != "attacking":
                 self.change_images(self.walking_images[self.get_direction_index(self.move_direction)])
-            self.mode = "walking"
+                self.mode = "walking"
         self.move_direction = new_move_direction
 
     def change_idle_images(self, dx, dy):
         if dx == 0 and dy == 0:
-            if self.mode == "attacking":
+            if self.mode == "attacking" or self.mode == "idle":
                 return
 
             i = self.get_direction_index(self.move_direction)
+
+            print(i, self.mode)
+
             self.change_images(self.idle_images[2 if i == 1 else 1 if i == 2 else i])
             self.mode = "idle"
-            return
 
     def move_if_possible(self, dx, dy):
         self.movement_collider.update(self.rect)
@@ -193,9 +199,9 @@ class Character(pg.sprite.Sprite, Animated):
         self.velocity_x *= (1 - self.friction)
         self.velocity_y *= (1 - self.friction)
 
-        if isinstance(self, Player):
-            print("if possible move")
-            print(dx, dy, self.velocity_x, self.velocity_y)
+        # if isinstance(self, Player):
+        #     print("if possible move")
+        #     print(dx, dy, self.velocity_x, self.velocity_y)
 
         min_velocity = 0.1
         if abs(self.velocity_y) < min_velocity:
@@ -281,6 +287,7 @@ class Player(Character):
 
     def stop_attacking(self):
         self.frame_duration = self.normal_frame_duration
+        print(self.frame_duration)
         self.change_images(self.idle_images[self.get_direction_index(self.move_direction)])
         self.mode = "idle"
 
@@ -297,6 +304,8 @@ class Player(Character):
             return
 
         self.update_dash()
+
+        print(self.mode)
 
         if self.mode == "attacking" and self.cur_frame == self.last_frame:
             self.stop_attacking()
@@ -336,7 +345,7 @@ class Player(Character):
 
     def stop_dash(self):
         self.change_images(self.walking_images[self.get_direction_index(self.move_direction)])
-        self.mode = "walking"
+        self.mode = "idle"
         self.flip_model_on_move(1 if self.flipped_x else 0)
         self.last_dash_time = pg.time.get_ticks()
         self.frame_duration = self.normal_frame_duration
