@@ -1,5 +1,5 @@
 import random
-from copy import deepcopy
+from copy import deepcopy, copy
 
 from tiles import MapTile, AnimatedMapTile
 from shared import WALL_SIZE, decorations, items, traps, ground, walls
@@ -20,6 +20,15 @@ room_height = len(room_tile_maps[0][0])
 wall_ids = [0, 1, 2, 3, 4, 5, 10, 15, 20, 25, 30, 35, 40, 41, 42, 43, 44, 45, 50, 51, 52, 53, 54, 55]
 void_tile_id = 78
 
+# ground, walls, decorations, items, traps
+objects_map = {}
+room_objects = {
+    "ground": [],
+    "walls": [],
+    "decorations": [],
+    "items": [],
+    "traps": []
+}
 
 #def generate_overworld():
 
@@ -172,7 +181,7 @@ def make_doorways(i, j, room_map, room_layout):
         room_layout[middle_tile + 2][1] = 10
 
 
-def traverse_rooms_in_random_order(room_layout, decorations_layout, x_off, y_off, callback, to_add=1):
+def traverse_rooms_in_random_order(room_layout, decorations_layout, x_off, y_off, room_id, callback, to_add=1):
     for i in range(to_add):
         coordinates = [(row, col) for row in range(len(room_layout)) for col in range(len(room_layout[row]))]
         random.shuffle(coordinates)
@@ -181,29 +190,30 @@ def traverse_rooms_in_random_order(room_layout, decorations_layout, x_off, y_off
             pos_x = col + x_off
             pos_y = row + y_off
 
-            added = callback(room_layout, decorations_layout, (row, col), pos_x, pos_y)
+            added = callback(room_layout, decorations_layout, (row, col), pos_x, pos_y, room_id)
             if added:
                 decorations_layout[row][col] = 1000  # mark as occupied
                 break
 
-def generate_key(room_layout, decorations_layout, x_off, y_off):
-    def place_key(room_layout, decorations_layout, grid_position, pos_x, pos_y):
+def generate_key(room_layout, decorations_layout, x_off, y_off, room_id):
+    def place_key(room_layout, decorations_layout, grid_position, pos_x, pos_y, room_id):
         row, col = grid_position
         room_tile_id = room_layout[row][col]
         decorations_tile_id = decorations_layout[row][col]
 
         if room_tile_id != void_tile_id and room_tile_id not in wall_ids and decorations_tile_id == -1:
             key = Key(pos_x * WALL_SIZE, pos_y * WALL_SIZE)
-            items.add(key)
+            #items.add(key)
+            objects_map[room_id]["items"].append(key)
 
             return True
         return False
 
-    traverse_rooms_in_random_order(room_layout, decorations_layout, x_off, y_off, place_key)
+    traverse_rooms_in_random_order(room_layout, decorations_layout, x_off, y_off, room_id, place_key)
 
-def generate_flamethrower(room_layout, decorations_layout, x_off, y_off):
+def generate_flamethrower(room_layout, decorations_layout, x_off, y_off, room_id):
 
-    def place_flamethrower(room_layout, decorations_layout, grid_position, pos_x, pos_y):
+    def place_flamethrower(room_layout, decorations_layout, grid_position, pos_x, pos_y, room_id):
         row, col = grid_position
         room_tile_id = room_layout[row][col]
         decorations_tile_id = decorations_layout[row][col]
@@ -214,16 +224,17 @@ def generate_flamethrower(room_layout, decorations_layout, x_off, y_off):
 
                 if attack_dir[0] or attack_dir[1]:
                     flamethrower = FlamethrowerTrap(pos_x * WALL_SIZE, pos_y * WALL_SIZE, attack_dir)
-                    traps.add(flamethrower)
+                    #traps.add(flamethrower)
+                    objects_map[room_id]["traps"].append(flamethrower)
 
                     return True
         return False
 
-    traverse_rooms_in_random_order(room_layout, decorations_layout, x_off, y_off, place_flamethrower)
+    traverse_rooms_in_random_order(room_layout, decorations_layout, x_off, y_off, room_id, place_flamethrower)
 
 
-def generate_arrow_trap(room_layout, decorations_layout, x_off, y_off):
-    def place_arrow_trap(room_layout, decorations_layout, grid_position, pos_x, pos_y):
+def generate_arrow_trap(room_layout, decorations_layout, x_off, y_off, room_id):
+    def place_arrow_trap(room_layout, decorations_layout, grid_position, pos_x, pos_y, room_id):
         row, col = grid_position
         room_tile_id = room_layout[row][col]
         decorations_tile_id = decorations_layout[row][col]
@@ -242,16 +253,17 @@ def generate_arrow_trap(room_layout, decorations_layout, x_off, y_off):
 
                 if attack_dir[0] or attack_dir[1]:
                     arrow_trap = ArrowTrap(pos_x * WALL_SIZE, pos_y * WALL_SIZE, attack_dir)
-                    traps.add(arrow_trap)
+                    #traps.add(arrow_trap)
+                    objects_map[room_id]["traps"].append(arrow_trap)
                     return True
 
         return False
 
-    traverse_rooms_in_random_order(room_layout, decorations_layout, x_off, y_off, place_arrow_trap)
+    traverse_rooms_in_random_order(room_layout, decorations_layout, x_off, y_off, room_id, place_arrow_trap)
 
-def generate_spike_trap(room_layout, decorations_layout, x_off, y_off, to_add):
+def generate_spike_trap(room_layout, decorations_layout, x_off, y_off, room_id, to_add):
 
-    def place_spike_trap(room_layout, decorations_layout, grid_position, pos_x, pos_y):
+    def place_spike_trap(room_layout, decorations_layout, grid_position, pos_x, pos_y, room_id):
         row, col = grid_position
         room_tile_id = room_layout[row][col]
         decorations_tile_id = decorations_layout[row][col]
@@ -259,16 +271,17 @@ def generate_spike_trap(room_layout, decorations_layout, x_off, y_off, to_add):
         if room_tile_id != void_tile_id and room_tile_id not in wall_ids and decorations_tile_id == -1:
 
             spike_trap = SpikeTrap(pos_x * WALL_SIZE, pos_y * WALL_SIZE)
-            traps.add(spike_trap)
+            #traps.add(spike_trap)
+            objects_map[room_id]["traps"].append(spike_trap)
 
             return True
         return False
 
-    traverse_rooms_in_random_order(room_layout, decorations_layout, x_off, y_off, place_spike_trap, to_add)
+    traverse_rooms_in_random_order(room_layout, decorations_layout, x_off, y_off, room_id, place_spike_trap, to_add)
 
 
-def generate_chest(room_layout, decorations_layout, x_off, y_off, to_add=1):
-    def place_chest(room_layout, decorations_layout, grid_position, pos_x, pos_y):
+def generate_chest(room_layout, decorations_layout, x_off, y_off, room_id, to_add=1):
+    def place_chest(room_layout, decorations_layout, grid_position, pos_x, pos_y, room_id):
         row, col = grid_position
         room_tile_id = room_layout[row][col]
         decorations_tile_id = decorations_layout[row][col]
@@ -281,12 +294,13 @@ def generate_chest(room_layout, decorations_layout, x_off, y_off, to_add=1):
 
         if room_tile_id != void_tile_id and room_tile_id not in wall_ids and decorations_tile_id == -1:
             chest = Chest(pos_x * WALL_SIZE, pos_y * WALL_SIZE, 10, 0)
-            items.add(chest)
+            #items.add(chest)
+            objects_map[room_id]["items"].append(chest)
 
-            return True
-        return False
+            return chest
+        return None
 
-    traverse_rooms_in_random_order(room_layout, decorations_layout, x_off, y_off, place_chest, to_add)
+    traverse_rooms_in_random_order(room_layout, decorations_layout, x_off, y_off, room_id, place_chest, to_add)
 
 
 def generate_map(room_map):
@@ -301,6 +315,8 @@ def generate_map(room_map):
 
     for i, j in indices:
         room_id = room_map[i][j]
+        objects_map[room_id] = deepcopy(room_objects)
+
         x_off = room_width * j
         y_off = room_height * i
 
@@ -321,23 +337,23 @@ def generate_map(room_map):
 
         # generate key if is the furthest room
         if room_id == furthest_room_id:
-            generate_key(room_layout, decorations_layout, x_off, y_off)
+            generate_key(room_layout, decorations_layout, x_off, y_off, room_id)
 
         # generate traps and items
         if room_id != 1:
             for prob in [1, 0.5, 0.25]:
                 if random.random() < prob:
-                    generate_flamethrower(room_layout, decorations_layout, x_off, y_off)
+                    generate_flamethrower(room_layout, decorations_layout, x_off, y_off, room_id)
             for prob in [0.7, 0.4, 0.25]:
                 if random.random() < prob:
-                    generate_arrow_trap(room_layout, decorations_layout, x_off, y_off)
+                    generate_arrow_trap(room_layout, decorations_layout, x_off, y_off, room_id)
 
-            generate_spike_trap(room_layout, decorations_layout, x_off, y_off, random.randint(0, 4))
+            generate_spike_trap(room_layout, decorations_layout, x_off, y_off, room_id, random.randint(0, 4))
 
             if number_of_added["chests"] < 3 \
                     or (3 <= number_of_added["chests"] <= 10 and random.random() < 0.3) \
                     or (10 < number_of_added["chests"] and random.random() < 0.15):
-                generate_chest(room_layout, decorations_layout, x_off, y_off)
+                generate_chest(room_layout, decorations_layout, x_off, y_off, room_id)
                 number_of_added["chests"] += 1
 
         # generate sprites
@@ -351,10 +367,13 @@ def generate_map(room_map):
                 if not(0 <= room_tile_id < len(tiles_images)):
                     continue
 
+                obj = MapTile(tiles_images[room_tile_id], pos_x, pos_y)
                 if room_tile_id in wall_ids:
-                    walls.add(MapTile(tiles_images[room_tile_id], pos_x, pos_y))
+                    #walls.add(obj)
+                    objects_map[room_id]["walls"].append(obj)
                 else:
-                    ground.add(MapTile(tiles_images[room_tile_id], pos_x, pos_y))
+                    objects_map[room_id]["ground"].append(obj)
+                    #ground.add(obj)
 
                 if not(0 <= decorations_tile_id < len(tiles_images)):
                     continue
@@ -375,10 +394,11 @@ def generate_map(room_map):
                 else:
                     obj = MapTile(tiles_images[decorations_tile_id], pos_x, pos_y)
 
-                decorations.add(obj)
+                objects_map[room_id]["decorations"].append(obj)
+                #decorations.add(obj)
 
     map_width_px = len(room_map[0]) * WALL_SIZE * room_width
     map_height_px = len(room_map) * WALL_SIZE * room_height
 
-    return map_width_px, map_height_px
+    return map_width_px, map_height_px, objects_map
 

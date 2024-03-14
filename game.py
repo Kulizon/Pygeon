@@ -9,7 +9,7 @@ from utility import Camera
 
 class Map():
     def __init__(self):
-        rooms = [i + 1 for i in range(10)]
+        rooms = [i + 1 for i in range(50)]
         self.room_map = connect_rooms(rooms)
         self.mini_map = trim_matrix(self.room_map)
         self.discovered_mini_map = deepcopy(self.mini_map)
@@ -18,10 +18,11 @@ class Map():
                 if el != 1:
                     self.discovered_mini_map[y][x] = 0
 
-        w, h = generate_map(self.room_map)
+        w, h, objects_map = generate_map(self.room_map)
 
         self.width_px = w
         self.height_px = h
+        self.objects_map = objects_map
 
         self.current_map_cell = 0
 
@@ -48,6 +49,7 @@ class Game():
         player_start_x = gmap.width_px // 2 - CHARACTER_SIZE
         player_start_y = gmap.height_px // 2 - CHARACTER_SIZE
         self.defeat_timer_start = pg.time.get_ticks()
+        self.objects_map = gmap.objects_map
 
         if not current_player:
             self.player = Player(player_start_x, player_start_y)
@@ -67,8 +69,25 @@ class Game():
         for grp in groups:
             grp.empty()
 
-    def render_appropriate_room(self):
+    def render_appropriate_room(self, current_map_cell):
         #self.clear_groups()
+        #print(self.objects_map)
+
+        objects = self.objects_map[current_map_cell]
+
+        for label in objects:
+            if label == "ground":
+                ground.add(objects[label])
+            elif label == "decorations":
+                decorations.add(objects[label])
+            elif label == "walls":
+                walls.add(objects[label])
+            elif label == "items":
+                items.add(objects[label])
+            elif label == "traps":
+                traps.add(objects[label])
+
+
         pass
 
         # changed the place where objects end up in in map_generation.py

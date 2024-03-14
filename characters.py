@@ -179,8 +179,6 @@ class Character(pg.sprite.Sprite, Animated):
 
             i = self.get_direction_index(self.move_direction)
 
-            print(i, self.mode)
-
             self.change_images(self.idle_images[2 if i == 1 else 1 if i == 2 else i])
             self.mode = "idle"
 
@@ -287,7 +285,6 @@ class Player(Character):
 
     def stop_attacking(self):
         self.frame_duration = self.normal_frame_duration
-        print(self.frame_duration)
         self.change_images(self.idle_images[self.get_direction_index(self.move_direction)])
         self.mode = "idle"
 
@@ -304,8 +301,6 @@ class Player(Character):
             return
 
         self.update_dash()
-
-        print(self.mode)
 
         if self.mode == "attacking" and self.cur_frame == self.last_frame:
             self.stop_attacking()
