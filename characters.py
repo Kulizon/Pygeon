@@ -94,42 +94,6 @@ class Character(pg.sprite.Sprite, Animated):
             self.flipped_x = False
             self.animate()
 
-    def slash_attack(self, direction, scale):
-        if pg.time.get_ticks() - self.last_attack_time < self.attack_cooldown:
-            return
-
-        self.last_attack_time = pg.time.get_ticks()
-
-        size = self.attack_size
-        if direction[1] == 1:
-            dim = (size * 3, size)
-            dest = (self.damage_collider.collision_rect.centerx - dim[0]//4, self.damage_collider.collision_rect.centery - self.damage_collider.collision_size[1] - dim[1]//2)
-        elif direction[1] == -1:
-            dim = (size * 3, size)
-            dest = (self.damage_collider.collision_rect.centerx - dim[0]//4, self.damage_collider.collision_rect.centery + self.damage_collider.collision_size[1])
-        elif direction[0] == -1:
-            dim = (size, size * 3)
-            dest = (self.damage_collider.collision_rect.centerx - self.damage_collider.collision_size[0] - dim[0]//2, self.damage_collider.collision_rect.centery - dim[1]//4)
-        elif direction[0] == 1:
-            dim = (size, size * 3)
-            dest = (self.damage_collider.collision_rect.centerx + self.damage_collider.collision_size[0], self.damage_collider.collision_rect.centery - dim[1]//4)
-        else:
-            return
-
-        dest = tuple(int(dest[i] + dim[i] * (1-scale)/2) for i in range(len(dest)))
-        dim = tuple(int(x * scale) for x in dim)
-
-        attack = {
-            'dim': dim,
-            'dest': dest,
-            'start_time': pg.time.get_ticks(),
-            'duration': 150,
-            'flipped_x': direction[0] == -1 or direction[1] == -1,
-            'flipped_y': (direction[0] == 0 and direction[1] != -1),
-            "damage": 34
-        }
-
-        self.attacks.append(attack)
 
     def update(self, camera, *args, **kwargs):
         self.animate_new_frame()
@@ -250,7 +214,46 @@ class Character(pg.sprite.Sprite, Animated):
         return not (is_collision and (is_collision_along_x or dx == 0) and (is_collision_along_y or dy == 0))
 
 
-class Player(Character):
+class SlashAttacker(Character):
+    def slash_attack(self, direction, scale):
+        if pg.time.get_ticks() - self.last_attack_time < self.attack_cooldown:
+            return
+
+        self.last_attack_time = pg.time.get_ticks()
+
+        size = self.attack_size
+        if direction[1] == 1:
+            dim = (size * 3, size)
+            dest = (self.damage_collider.collision_rect.centerx - dim[0]//4, self.damage_collider.collision_rect.centery - self.damage_collider.collision_size[1] - dim[1]//2)
+        elif direction[1] == -1:
+            dim = (size * 3, size)
+            dest = (self.damage_collider.collision_rect.centerx - dim[0]//4, self.damage_collider.collision_rect.centery + self.damage_collider.collision_size[1])
+        elif direction[0] == -1:
+            dim = (size, size * 3)
+            dest = (self.damage_collider.collision_rect.centerx - self.damage_collider.collision_size[0] - dim[0]//2, self.damage_collider.collision_rect.centery - dim[1]//4)
+        elif direction[0] == 1:
+            dim = (size, size * 3)
+            dest = (self.damage_collider.collision_rect.centerx + self.damage_collider.collision_size[0], self.damage_collider.collision_rect.centery - dim[1]//4)
+        else:
+            return
+
+        dest = tuple(int(dest[i] + dim[i] * (1-scale)/2) for i in range(len(dest)))
+        dim = tuple(int(x * scale) for x in dim)
+
+        attack = {
+            'dim': dim,
+            'dest': dest,
+            'start_time': pg.time.get_ticks(),
+            'duration': 150,
+            'flipped_x': direction[0] == -1 or direction[1] == -1,
+            'flipped_y': (direction[0] == 0 and direction[1] != -1),
+            "damage": 34
+        }
+
+        self.attacks.append(attack)
+
+
+class Player(SlashAttacker):
     def __init__(self, start_x, start_y):
         Character.__init__(self, start_x, start_y, player_images[0:4], CHARACTER_SIZE * 1.6)
         self.full_health = 12
@@ -379,7 +382,7 @@ class Player(Character):
             self.add_walking_effect()
 
     def dash(self):
-        if pg.time.get_ticks() - self.last_dash_time < self.dash_cooldown:
+        if self.mode == "dashing" or pg.time.get_ticks() - self.last_dash_time < self.dash_cooldown:
             return
 
         self.last_dash_time = pg.time.get_ticks()
@@ -421,7 +424,9 @@ class Enemy(Character):
         self.roam_wait_time = random.randint(1500, 2500)
         self.last_turn_around_animation_time = pg.time.get_ticks()
         self.attack_cooldown = 1500
+        self.about_to_attack_time_cooldown = 180
         self.about_to_attack_time = 0
+        self.distance_prepare_attack = 12000
 
         off_x = 10
         off_y = 20
@@ -464,8 +469,9 @@ class Enemy(Character):
             self.roam_wait_time = random.randint(1500, 2500)
 
     def launch_attack(self):
-        if self.attack_dir and pg.time.get_ticks() - self.about_to_attack_time > 180:
-            self.slash_attack(self.attack_dir, 0.8)
+        if self.attack_dir and pg.time.get_ticks() - self.about_to_attack_time > self.about_to_attack_time_cooldown:
+            self.attack_function()
+            #self.slash_attack(self.attack_dir, 0.8)
             self.attack_dir = None
             self.about_to_attack_time = 0
 
@@ -503,11 +509,10 @@ class Enemy(Character):
         self.spotted_time = None
         distance_to_player = (self.rect.x - player_rect.x) ** 2 + (self.rect.y - player_rect.y) ** 2
 
-        if distance_to_player > 12000:
+        if distance_to_player > self.distance_prepare_attack:
             self.move_enemy((player_rect.x, player_rect.y))
         else:
             self.prepare_attack(player_rect)
-
 
     def update(self, camera, player_rect, *args, **kwargs):
         super().update(camera)
@@ -561,6 +566,48 @@ class Enemy(Character):
             if obstacle.rect.clipline((self.rect.center, position_rect.center)):
                 return False
         return True
+
+    def attack_function(self):
+        print("DEFAULT ATTACK FUNCTION")
+
+
+class SkeletonScytheEnemy(Enemy, SlashAttacker):
+    def __init__(self, x, y):
+        Enemy.__init__(self, x, y)
+
+    def attack_function(self):
+        self.slash_attack(self.attack_dir, 0.8)
+
+
+class SkeletonEnemy(Enemy, SlashAttacker):
+    def __init__(self, x, y):
+        Enemy.__init__(self, x, y)
+        self.attack_cooldown = 1000
+        self.distance_prepare_attack = 1000
+        self.about_to_attack_time_cooldown = 0
+
+    def attack_function(self):
+        dest_x = self.damage_collider.collision_rect.x + self.damage_collider.collision_rect.size[0]//2
+        dest_y = self.damage_collider.collision_rect.y + self.damage_collider.collision_rect.size[1]//2
+
+        attack = {
+            'dim': self.damage_collider.collision_rect.size,
+            'dest': [dest_x, dest_y],
+            'start_time': pg.time.get_ticks(),
+            'duration': 10,
+            'flipped_x': False,
+            'flipped_y': False,
+            "damage": 1
+        }
+
+        self.attacks.append(attack)
+
+
+
+
+
+
+
 
 
 class PlayerUpgradeItem(Item):

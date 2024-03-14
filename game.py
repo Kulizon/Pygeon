@@ -1,6 +1,6 @@
 from copy import deepcopy
 import pygame as pg
-from characters import Player, Merchant, Enemy
+from characters import Player, Merchant, Enemy, SkeletonEnemy, SkeletonScytheEnemy
 from map_generation import connect_rooms, generate_map
 from shared import WALL_SIZE, characters, CHARACTER_SIZE, ground, walls, decorations, items, traps, visuals
 from ui import trim_matrix
@@ -9,7 +9,7 @@ from utility import Camera
 
 class Map():
     def __init__(self):
-        rooms = [i + 1 for i in range(50)]
+        rooms = [i + 1 for i in range(20)]
         self.room_map = connect_rooms(rooms)
         self.mini_map = trim_matrix(self.room_map)
         self.discovered_mini_map = deepcopy(self.mini_map)
@@ -59,8 +59,9 @@ class Game():
             self.player.rect.y = player_start_y
 
         merchant = Merchant(gmap.width_px // 2 - CHARACTER_SIZE, gmap.height_px // 2 - 220 - CHARACTER_SIZE)
-        ch1 = Enemy(gmap.width_px // 2, gmap.height_px // 2 + 220)
-        characters.add(self.player, ch1, merchant)
+        ch1 = SkeletonScytheEnemy(gmap.width_px // 2, gmap.height_px // 2 + 220)
+        ch2 = SkeletonEnemy(gmap.width_px // 2, gmap.height_px // 2 - 220)
+        characters.add(self.player, ch2, merchant)
         #characters.add(self.player, self.merchant)
 
 
@@ -68,6 +69,7 @@ class Game():
         groups = [ground, walls, decorations, items, traps, visuals]
         for grp in groups:
             grp.empty()
+
 
     def render_appropriate_room(self, current_map_cell, room_map):
         self.clear_groups()
@@ -107,9 +109,6 @@ class Game():
                     items.add(objects[label])
                 elif label == "traps":
                     traps.add(objects[label])
-
-
-        pass
 
         # changed the place where objects end up in in map_generation.py
         # from this map i think select the appropriate room with self.current_map_cell
