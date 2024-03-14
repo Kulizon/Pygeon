@@ -167,6 +167,7 @@ while running:
                 if attackRect.colliderect(testedChar.damage_collider.collision_rect) and testedChar != char:
                     if testedChar == game.player:
                         game.player.take_damage(1, char)
+                        char.handle_player_hit(game.player)
                     else:
                         testedChar.take_damage(dmg, game.player)
 
@@ -188,7 +189,7 @@ while running:
     decorations.update()
     traps.update(game.player)
     items.update(game.player)
-    characters.update(game.camera, game.player.rect)
+    characters.update(game.camera, game.player.damage_collider.collision_rect)
     current_room_changed = gmap.update(game.player)
 
     if current_room_changed:

@@ -49,14 +49,9 @@ class Character(pg.sprite.Sprite, Animated):
         self.friction = self.default_friction
         self.took_damage = False
 
-    def take_damage(self, damage, enemy=None):
-        self.health -= damage
 
-        if enemy is None:
-            return
-
+    def knockback(self, enemy):
         enemy_direction = [enemy.rect.centerx - self.rect.centerx, enemy.rect.centery - self.rect.centery]
-
         length = max(abs(enemy_direction[0]), abs(enemy_direction[1]))
         if length != 0:
             enemy_direction = [enemy_direction[0] / length, enemy_direction[1] / length]
@@ -73,6 +68,14 @@ class Character(pg.sprite.Sprite, Animated):
         self.velocity_y = 0
         self.took_damage = True
         self.move_if_possible(dx, dy)
+
+    def take_damage(self, damage, enemy=None):
+        self.health -= damage
+
+        if enemy is None:
+            return
+
+        self.knockback(enemy)
 
     def get_direction_index(self, direction):
         if direction[0] == 1:
@@ -573,6 +576,9 @@ class Enemy(Character):
     def attack_function(self):
         print("DEFAULT ATTACK FUNCTION")
 
+    def handle_player_hit(self, player):
+        pass
+
 
 class SkeletonScytheEnemy(Enemy, SlashAttacker):
     def __init__(self, x, y):
@@ -586,16 +592,19 @@ class SkeletonEnemy(Enemy, SlashAttacker):
     def __init__(self, x, y):
         Enemy.__init__(self, x, y)
         self.speed = 6
-        self.attack_cooldown = 1000
-        self.distance_prepare_attack = 900
+        self.attack_cooldown = 10
+        self.distance_prepare_attack = 2400
         self.about_to_attack_time_cooldown = 0
 
     def attack_function(self):
-        dest_x = self.damage_collider.collision_rect.x + self.damage_collider.collision_rect.size[0]//2
-        dest_y = self.damage_collider.collision_rect.y + self.damage_collider.collision_rect.size[1]//2
+        size_x = self.damage_collider.collision_rect.size[0] * 1.3
+        size_y = self.damage_collider.collision_rect.size[1] * 1.3
+
+        dest_x = self.damage_collider.collision_rect.x + size_x//2 + (self.damage_collider.collision_rect.size[0] - size_x)//2
+        dest_y = self.damage_collider.collision_rect.y + size_y//2 + (self.damage_collider.collision_rect.size[1] - size_y)//2
 
         attack = {
-            'dim': self.damage_collider.collision_rect.size,
+            'dim': [size_x, size_y],
             'dest': [dest_x, dest_y],
             'start_time': pg.time.get_ticks(),
             'duration': 10,
@@ -606,9 +615,8 @@ class SkeletonEnemy(Enemy, SlashAttacker):
 
         self.attacks.append(attack)
 
-
-
-
+    def handle_player_hit(self, player):
+        self.knockback(player)
 
 
 
