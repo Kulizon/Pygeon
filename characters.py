@@ -17,7 +17,7 @@ class Character(pg.sprite.Sprite, Animated):
         self.full_health = 0
         self.default_size = size
 
-        Animated.__init__(self, images, (self.default_size, self.default_size), 200)
+        Animated.__init__(self, images, (self.default_size, self.default_size), 150)
         self.last_attack_time = pg.time.get_ticks()
         self.attack_size = self.default_size
         self.attack_cooldown = 0

@@ -69,23 +69,44 @@ class Game():
         for grp in groups:
             grp.empty()
 
-    def render_appropriate_room(self, current_map_cell):
-        #self.clear_groups()
+    def render_appropriate_room(self, current_map_cell, room_map):
+        self.clear_groups()
         #print(self.objects_map)
 
-        objects = self.objects_map[current_map_cell]
+        cells = [current_map_cell]
+        for i, row in enumerate(room_map):
+            for j, cell in enumerate(row):
+                if cell == current_map_cell:
+                    if j - 1 >= 0:
+                        cells.append(room_map[i][max(0, j - 1)])
+                    if j + 1 < len(row):
+                        cells.append(room_map[i][min(len(row) - 1, j + 1)])
+                    if i - 1 >= 0:
+                        cells.append(room_map[max(0, i - 1)][j])
+                    if i + 1 < len(room_map):
+                        cells.append(room_map[min(len(room_map) - 1, i + 1)][j])
+                    if i - 1 >= 0 and j - 1 >= 0:
+                        cells.append(room_map[max(0, i - 1)][max(0, j - 1)])
+                    if i + 1 < len(room_map) and j - 1 >= 0:
+                        cells.append(room_map[min(len(room_map) - 1, i + 1)][max(0, j - 1)])
+                    if i - 1 >= 0 and j + 1 < len(row):
+                        cells.append(room_map[max(0, i - 1)][min(len(row) - 1, j + 1)])
+                    if i + 1 < len(room_map) and j + 1 < len(row):
+                        cells.append(room_map[min(len(room_map) - 1, i + 1)][min(len(row) - 1, j + 1)])
 
-        for label in objects:
-            if label == "ground":
-                ground.add(objects[label])
-            elif label == "decorations":
-                decorations.add(objects[label])
-            elif label == "walls":
-                walls.add(objects[label])
-            elif label == "items":
-                items.add(objects[label])
-            elif label == "traps":
-                traps.add(objects[label])
+        for cell in cells:
+            objects = self.objects_map[cell]
+            for label in objects:
+                if label == "ground":
+                    ground.add(objects[label])
+                elif label == "decorations":
+                    decorations.add(objects[label])
+                elif label == "walls":
+                    walls.add(objects[label])
+                elif label == "items":
+                    items.add(objects[label])
+                elif label == "traps":
+                    traps.add(objects[label])
 
 
         pass

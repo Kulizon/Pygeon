@@ -192,7 +192,7 @@ while running:
     current_room_changed = gmap.update(game.player)
 
     if current_room_changed:
-        game.render_appropriate_room(gmap.current_map_cell)
+        game.render_appropriate_room(gmap.current_map_cell, gmap.room_map)
 
     if game.player.is_next_level:
         game.player.is_next_level = False
