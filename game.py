@@ -116,7 +116,9 @@ class Game():
                 elif label == "traps":
                     traps.add(objects[label])
                 elif label == "characters":
-                    characters.add(objects[label])
+                    for obj in objects[label]:
+                        if obj.health > 0:
+                            characters.add(obj)
 
         print(characters)
 

@@ -12,6 +12,23 @@ coin_animated = Animated(coin_images, (30, 30), 200)
 key_images = load_images_from_folder("assets/items_and_traps_animations/keys/silver_resized")
 key_animated = Animated(key_images, (30, 22), 200)
 
+mini_map_background_image = pg.image.load("assets/ui/1 Sprites/Paper UI Pack/Paper UI/Plain/5 Mini Map/darkened.png").convert_alpha()
+scale = 1.1
+mini_map_background_image = pg.transform.scale(mini_map_background_image, (mini_map_background_image.get_width() * scale, (mini_map_background_image.get_height() * scale)))
+
+gap = 5
+screen_gap = 20
+mini_map_size = 138
+cell_width = (mini_map_size - 2 * screen_gap) // (2 * 2 + 1)
+cell_height = (mini_map_size - 2 * screen_gap) // (2 * 2 + 1)
+cells_gap = (cell_width + gap) * 5 - 7
+
+cell_image = pg.image.load("assets/ui/1 Sprites/Paper UI Pack/Paper UI/Plain/5 Mini Map/cell.png").convert_alpha()
+cell_image = pg.transform.scale(cell_image, (cell_width, cell_height))
+
+current_cell_image = pg.image.load("assets/ui/1 Sprites/Paper UI Pack/Paper UI/Plain/5 Mini Map/cell_current.png").convert_alpha()
+current_cell_image = pg.transform.scale(current_cell_image, (cell_width, cell_height))
+
 def trim_matrix(matrix):
     min_row = len(matrix)
     max_row = 0
@@ -73,9 +90,6 @@ def display_full_map(map, current_cell):
 
 
 def display_mini_map(map, current_cell):
-    gap = 5
-    screen_gap = 15
-    mini_map_size = 140
 
     cell_position = [-1, -1]
 
@@ -99,21 +113,20 @@ def display_mini_map(map, current_cell):
         for x in range(start_x, end_x):
             mini_map[center_y - (cell_position[1] - y)][center_x - (cell_position[0] - x)] = map[y][x]
 
-    cell_width = (mini_map_size - 2 * screen_gap) // (2 * 2 + 1)
-    cell_height = (mini_map_size - 2 * screen_gap) // (2 * 2 + 1)
-
-    map_size_px = (cell_width + gap) * 6
-    cells_gap = screen_gap - (mini_map_size - map_size_px) // 2
-
-    pg.draw.rect(screen, (0, 0, 0), (SCREEN_WIDTH - screen_gap - map_size_px, screen_gap, map_size_px, map_size_px))
+    screen.blit(mini_map_background_image, (SCREEN_WIDTH - mini_map_background_image.get_width() - screen_gap, screen_gap, mini_map_size, mini_map_size))
 
     for y in range(5):
         for x in range(5):
-            display_x = SCREEN_WIDTH - cells_gap - map_size_px + (x + 1) * (cell_width + gap)
-            display_y = cells_gap + 2 + y * cell_height + gap * y
+            display_x = SCREEN_WIDTH - mini_map_background_image.get_width() - screen_gap + x * (cell_width + gap)
+            display_x += (mini_map_background_image.get_width() - cells_gap)//2
+            display_y = y * (cell_height + gap) + screen_gap + cells_gap//3
             cell_value = mini_map[y][x]
-            color = (255, 0, 0) if cell_value == current_cell else (0, 255, 0) if cell_value != 0 else (0, 0, 0)
-            pg.draw.rect(screen, color, (display_x, display_y, cell_width, cell_height))
+            #color = (255, 0, 0) if cell_value == current_cell else (0, 255, 0) if cell_value != 0 else (0, 0, 0)
+            if cell_value == current_cell:
+                screen.blit(current_cell_image, (display_x, display_y, cell_width, cell_height))
+            elif cell_value != 0:
+                screen.blit(cell_image, (display_x, display_y, cell_width, cell_height))
+            #pg.draw.rect(screen, color, (display_x, display_y, cell_width, cell_height))
 
 
 def display_keys(number_of_keys):
@@ -126,7 +139,7 @@ def display_keys(number_of_keys):
 
 
 def display_timer(timer_seconds):
-    mini_map_size = 140
+    mini_map_size = 170
     screen_gap = 15
 
     seconds = timer_seconds % 60
