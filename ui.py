@@ -26,8 +26,15 @@ cells_gap = (cell_width + gap) * 5 - 7
 cell_image = pg.image.load("assets/ui/1 Sprites/Paper UI Pack/Paper UI/Plain/5 Mini Map/cell.png").convert_alpha()
 cell_image = pg.transform.scale(cell_image, (cell_width, cell_height))
 
+visited_cell_image = pg.image.load("assets/ui/1 Sprites/Paper UI Pack/Paper UI/Plain/5 Mini Map/cell_visited.png").convert_alpha()
+visited_cell_image = pg.transform.scale(visited_cell_image, (cell_width, cell_height))
+
 current_cell_image = pg.image.load("assets/ui/1 Sprites/Paper UI Pack/Paper UI/Plain/5 Mini Map/cell_current.png").convert_alpha()
 current_cell_image = pg.transform.scale(current_cell_image, (cell_width, cell_height))
+
+start_cell_image = pg.image.load("assets/ui/1 Sprites/Paper UI Pack/Paper UI/Plain/5 Mini Map/cell_start.png").convert_alpha()
+start_cell_image = pg.transform.scale(start_cell_image, (cell_width, cell_height))
+
 
 def trim_matrix(matrix):
     min_row = len(matrix)
@@ -124,7 +131,11 @@ def display_mini_map(map, current_cell):
             #color = (255, 0, 0) if cell_value == current_cell else (0, 255, 0) if cell_value != 0 else (0, 0, 0)
             if cell_value == current_cell:
                 screen.blit(current_cell_image, (display_x, display_y, cell_width, cell_height))
+            elif cell_value == 1:
+                screen.blit(start_cell_image, (display_x, display_y, cell_width, cell_height))
             elif cell_value != 0:
+                screen.blit(visited_cell_image, (display_x, display_y, cell_width, cell_height))
+            else:
                 screen.blit(cell_image, (display_x, display_y, cell_width, cell_height))
             #pg.draw.rect(screen, color, (display_x, display_y, cell_width, cell_height))
 
