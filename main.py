@@ -1,6 +1,6 @@
 import pygame as pg
 
-from game import Map, Game
+from game import DungeonMap, Game
 from shared import CHARACTER_SIZE, characters, items, traps, visuals, decorations, walls, \
  ground, screen
 
@@ -11,33 +11,10 @@ from traps import SpikeTrap
 from ui import display_ui
 
 
-pg.init()
-clock = pg.time.Clock()
-gmap = Map()
-game = Game(gmap)
+def underworld_scene(game):
+    screen.fill("#25141A")
 
-
-def generate_new_level(current_player):
-    global game
-    global gmap
-
-    game.clear_groups()
-
-    if not current_player:
-        characters.empty()
-    else:
-        characters.remove([char for char in characters.sprites() if not isinstance(char, Player)])
-
-    gmap = Map()
-    game = Game(gmap, current_player)
-
-
-running = True
-while running:
     defeat_timer_seconds = 600 - (pg.time.get_ticks() - game.defeat_timer_start) // 1000
-
-    fps = round(clock.get_fps())
-
     action_objects = []
     for char in characters:
         if isinstance(char, Merchant):
@@ -48,13 +25,11 @@ while running:
             action_objects.append(tile)
 
     for event in pg.event.get():
-        if event.type == pg.QUIT:
-            running = False
-
         keys = pg.key.get_pressed()
-        if event.type == pg.KEYDOWN:
-            dx, dy = 0, 0
+        if event.type == pg.QUIT:
+            game.running = False
 
+        if event.type == pg.KEYDOWN:
             if keys[pg.K_e]:
                 for obj in action_objects:
                     performed = obj.perform_action(game.player)
@@ -79,15 +54,6 @@ while running:
 
             if keys[pg.K_SPACE]:
                 game.player.dash()
-
-    keys = pg.key.get_pressed()
-
-    dx = 1 if keys[pg.K_d] else -1 if keys[pg.K_a] else 0
-    dy = 1 if keys[pg.K_w] else -1 if keys[pg.K_s] else 0
-
-    game.player.move_player(dx, -dy)
-
-    screen.fill("#25141A")
 
     arrows = []
     [arrows.extend(trap.arrows) for trap in traps if hasattr(trap, 'arrows')]
@@ -154,34 +120,33 @@ while running:
             effect = pg.Surface(attack['dim'])
             dmg = attack['damage']
 
-            attackRect = effect.get_rect()
-            attackRect.centerx = dest[0]
-            attackRect.centery = dest[1]
+            attack_rect = effect.get_rect()
+            attack_rect.centerx = dest[0]
+            attack_rect.centery = dest[1]
 
             if char == game.player:
                 for chest in chests:
-                    if chest.rect.colliderect(attackRect):
+                    if chest.rect.colliderect(attack_rect):
                         chest.open()
 
-            for testedChar in characters:
-                if attackRect.colliderect(testedChar.damage_collider.collision_rect) and testedChar != char:
-                    if testedChar == game.player:
+            for tested_char in characters:
+                if attack_rect.colliderect(tested_char.damage_collider.collision_rect) and tested_char != char:
+                    if tested_char == game.player:
                         game.player.take_damage(1, char)
                         char.handle_player_hit(game.player)
                     else:
-                        testedChar.take_damage(dmg, game.player)
+                        tested_char.take_damage(dmg, game.player)
 
-                        if isinstance(testedChar, Enemy) and testedChar.health <= 0:
-                            characters.remove(testedChar)
+                        if isinstance(tested_char, Enemy) and tested_char.health <= 0:
+                            characters.remove(tested_char)
                             images = load_images_from_folder("assets/effects/explosion")
-                            visuals.add(Visual(images, testedChar.rect.inflate(20, 20), pg.time.get_ticks(), 400))
-
+                            visuals.add(Visual(images, tested_char.rect.inflate(20, 20), pg.time.get_ticks(), 400))
 
             char.attacks.remove(attack)
             images = load_images_from_folder("assets/effects/slash_attack")
-            attackVisual = Visual(images, attackRect, attack['start_time'], attack['duration'], attack['flipped_x'], attack['flipped_y'])
+            attack_visual = Visual(images, attack_rect, attack['start_time'], attack['duration'], attack['flipped_x'], attack['flipped_y'])
 
-            visuals.add(attackVisual)
+            visuals.add(attack_visual)
 
     display_ui(game.player.coins, game.player.health, gmap.discovered_mini_map, gmap.current_map_cell, game.player.number_of_keys, defeat_timer_seconds, fps)
 
@@ -198,6 +163,48 @@ while running:
     if game.player.is_next_level:
         game.player.is_next_level = False
         generate_new_level(game.player)
+
+
+def overworld_scene(game):
+    pass
+
+
+
+pg.init()
+clock = pg.time.Clock()
+gmap = DungeonMap()
+game = Game(gmap)
+
+def generate_new_level(current_player):
+    global game
+    global gmap
+
+    game.clear_groups()
+
+    if not current_player:
+        characters.empty()
+    else:
+        characters.remove([char for char in characters.sprites() if not isinstance(char, Player)])
+
+    gmap = DungeonMap()
+    game = Game(gmap, current_player)
+
+
+
+while game.running:
+    fps = round(clock.get_fps())
+
+    keys = pg.key.get_pressed()
+
+    dx = 1 if keys[pg.K_d] else -1 if keys[pg.K_a] else 0
+    dy = 1 if keys[pg.K_w] else -1 if keys[pg.K_s] else 0
+
+    game.player.move_player(dx, -dy)
+
+    if game.scene == "underworld":
+        underworld_scene(game)
+    elif game.scene == "overworld":
+        overworld_scene()
 
     pg.display.flip()
     clock.tick(60)
