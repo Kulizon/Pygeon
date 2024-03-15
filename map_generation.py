@@ -27,7 +27,8 @@ room_objects = {
     "walls": [],
     "decorations": [],
     "items": [],
-    "traps": []
+    "traps": [],
+    "characters": []
 }
 
 #def generate_overworld():

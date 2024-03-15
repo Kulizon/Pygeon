@@ -158,9 +158,9 @@ class Character(pg.sprite.Sprite, Animated):
         self.velocity_x *= (1 - self.friction)
         self.velocity_y *= (1 - self.friction)
 
-        if isinstance(self, Player):
-            print("if possible move")
-            print(dx, dy, self.velocity_x, self.velocity_y, self.friction)
+        # if isinstance(self, Player):
+        #     print("if possible move")
+        #     print(dx, dy, self.velocity_x, self.velocity_y, self.friction)
 
         min_velocity = 0.1
         if abs(self.velocity_y) < min_velocity:
@@ -467,12 +467,15 @@ class Enemy(Character):
 
         moved = self.move_if_possible(dx, dy)
 
-        if not moved or (dx and dy == 0):
+        distance = math.sqrt((self.damage_collider.collision_rect[0] - goal_position[0]) ** 2 + (
+                self.damage_collider.collision_rect[1] - goal_position[1]) ** 2)
+
+        if distance < 3 or not moved or (dx and dy == 0):
             self.last_known_player_position = None
             self.roam_position = None
             self.last_roam_time = pg.time.get_ticks()
             self.last_turn_around_animation_time = pg.time.get_ticks()
-            self.roam_wait_time = random.randint(1500, 2500)
+            self.roam_wait_time = random.randint(1000, 1500)
 
     def launch_attack(self):
         if self.attack_dir and pg.time.get_ticks() - self.about_to_attack_time > self.about_to_attack_time_cooldown:
@@ -491,6 +494,7 @@ class Enemy(Character):
 
     def roam_to(self, camera):
         self.in_line_of_sight(pg.Rect(self.roam_position[0], self.roam_position[1], 1, 1), walls, True, camera)
+
         self.move_enemy(self.roam_position)
 
     def choose_where_to_roam(self, camera):
@@ -616,7 +620,8 @@ class SkeletonEnemy(Enemy, SlashAttacker):
         self.attacks.append(attack)
 
     def handle_player_hit(self, player):
-        self.knockback(player)
+        if player.mode != "dashing":
+            self.knockback(player)
 
 
 
