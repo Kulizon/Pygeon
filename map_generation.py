@@ -4,7 +4,7 @@ from copy import deepcopy, copy
 from tiles import MapTile, AnimatedMapTile
 from shared import WALL_SIZE, decorations, items, traps, ground, walls
 from utility import convert_csv_to_2d_list, load_tileset
-from items import Key, Chest, Trapdoor
+from items import Key, Chest, Trapdoor, DungeonDoor
 from traps import FlamethrowerTrap, ArrowTrap, SpikeTrap
 
 room_tile_maps = []
@@ -13,7 +13,12 @@ for i in range(1, 7):
     decoration_tiles = convert_csv_to_2d_list(csv_file="assets/rooms/room" + str(i) + "_l2.csv")
     room_tile_maps.append([structure_tiles, decoration_tiles])
 
-tiles_images = load_tileset("assets/tileset.png", 16, 16)
+overworld_tile_map_layers = []
+for i in range(1, 5):
+    overworld_tile_map_layers.append(convert_csv_to_2d_list(csv_file="assets/rooms/overworld/main_" + str(i) + ".csv"))
+
+overworld_tile_images = load_tileset("assets/overworld_tileset.png", 16, 16)
+dungeon_tile_images = load_tileset("assets/dungeon_tileset.png", 16, 16)
 room_width = len(room_tile_maps[0][0][0])
 room_height = len(room_tile_maps[0][0])
 
@@ -31,7 +36,38 @@ room_objects = {
     "characters": []
 }
 
-#def generate_overworld():
+carpet_tiles = [16, 17, 18, 64, 65, 66, 112, 113, 114]
+floor_tiles = [288, 289, 336, 337, 338, 339]
+door_tiles = [264, 265, 266]
+stair_tiles = [26, 74, 122]
+table_tiles = [204, 205, 206, 348, 349, 350]
+def generate_overworld():
+    for layer in overworld_tile_map_layers:
+        for row in range(len(layer)):
+            for col in range(len(layer[row])):
+
+                tile_id = layer[row][col]
+                if tile_id == -1:
+                    continue
+
+                door_tile_id = 217
+                obj = MapTile(overworld_tile_images[tile_id], col, row, 50)
+                if tile_id == door_tile_id:
+                    walls.add(DungeonDoor(col, row, 50))
+                if tile_id in floor_tiles + carpet_tiles + door_tiles + stair_tiles:
+                    ground.add(obj)
+                elif tile_id in table_tiles:
+                    decorations.add(obj)
+                else:
+                    walls.add(obj)
+    
+                # elif tile == ...
+                #walls.add(layer[row][col])
+
+    map_width_px = len(overworld_tile_map_layers[0][0]) * WALL_SIZE
+    map_height_px = len(overworld_tile_map_layers[0]) * WALL_SIZE
+
+    return map_width_px, map_height_px
 
 
 def place_room(map, room, position):
@@ -365,10 +401,10 @@ def generate_map(room_map):
 
                 room_tile_id = room_layout[row][col]
                 decorations_tile_id = decorations_layout[row][col]
-                if not(0 <= room_tile_id < len(tiles_images)):
+                if not(0 <= room_tile_id < len(dungeon_tile_images)):
                     continue
 
-                obj = MapTile(tiles_images[room_tile_id], pos_x, pos_y)
+                obj = MapTile(dungeon_tile_images[room_tile_id], pos_x, pos_y)
                 if room_tile_id in wall_ids:
                     #walls.add(obj)
                     objects_map[room_id]["walls"].append(obj)
@@ -376,7 +412,7 @@ def generate_map(room_map):
                     objects_map[room_id]["ground"].append(obj)
                     #ground.add(obj)
 
-                if not(0 <= decorations_tile_id < len(tiles_images)):
+                if not(0 <= decorations_tile_id < len(dungeon_tile_images)):
                     continue
 
                 animations_images_data = {
@@ -393,7 +429,7 @@ def generate_map(room_map):
                 elif decorations_tile_id == 38:
                     obj = Trapdoor(pos_x, pos_y)
                 else:
-                    obj = MapTile(tiles_images[decorations_tile_id], pos_x, pos_y)
+                    obj = MapTile(dungeon_tile_images[decorations_tile_id], pos_x, pos_y)
 
                 objects_map[room_id]["decorations"].append(obj)
                 #decorations.add(obj)

@@ -15,14 +15,19 @@ class Camera:
         self.initial_width = width
         self.initial_height = height
 
-    def update(self, target):
-        x = -target.rect.x + (SCREEN_WIDTH // 2)
-        y = -target.rect.y + (SCREEN_HEIGHT // 2)
+    def update(self, player, restriction_rect):
+        x = player.rect.centerx - (SCREEN_WIDTH // 2)
+        y = player.rect.centery - (SCREEN_HEIGHT // 2)
 
-        x = min(0, x)
-        y = min(0, y)
-        x = max(-(self.width - SCREEN_WIDTH), x)
-        y = max(-(self.height - SCREEN_HEIGHT), y)
+        # x = min(0, x)
+        # y = min(0, y)
+        # x = max(self.width - SCREEN_WIDTH, x)
+        # y = max(self.height - SCREEN_HEIGHT, y)
+
+        x = min(restriction_rect.right, x)
+        y = min(restriction_rect.bottom + (restriction_rect.height - SCREEN_HEIGHT), y)
+        x = max(restriction_rect.left, x)
+        y = max(restriction_rect.top + restriction_rect.height, y)
 
         self.rect = pg.Rect(x, y, self.width, self.height)
 
@@ -143,7 +148,6 @@ class ActionObject:
         self.rect = rect
         self.action_to_perform = action_to_perform
         self.max_distance = max_distance
-
 
     def is_close(self, player):
         dx = self.rect.centerx - player.rect.centerx

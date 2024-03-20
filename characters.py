@@ -274,6 +274,7 @@ class Player(SlashAttacker):
         self.coins = 1595
         self.health = 4
         self.is_next_level = False
+        self.is_in_out_of_dungeon = False
 
         off_x = 40
         off_y = 40
@@ -656,12 +657,12 @@ class MerchantItem(Item, ActionObject):
             player.add_item(self.item_to_sell)
 
     def render(self, camera, player):
-        screen.blit(self.image, (self.rect.x + camera.rect.x, self.rect.y + camera.rect.y))
+        screen.blit(self.image, (self.rect.x - camera.rect.x, self.rect.y - camera.rect.y))
 
         color = (255, 0, 0) if self.is_close(player) else (255, 255, 255)
 
         text = font.render(str(self.price) + "$", True, color)
-        screen.blit(text, (self.rect.x + camera.rect.x, self.rect.y + camera.rect.y + self.image.get_height() + 10))
+        screen.blit(text, (self.rect.x - camera.rect.x, self.rect.y - camera.rect.y + self.image.get_height() + 10))
 
 
         if self.description and self.is_close(player):

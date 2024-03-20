@@ -68,11 +68,11 @@ class Chest(Item):
 
 class Trapdoor(MapTile, ActionObject):
     def __init__(self, x, y):
-        from map_generation import tiles_images
-        MapTile.__init__(self, tiles_images[38], x, y)
+        from map_generation import dungeon_tile_images
+        MapTile.__init__(self, dungeon_tile_images[38], x, y)
         ActionObject.__init__(self, self.rect, self.trapdoor_action)
 
-        self.open_trapdoor_image = tiles_images[39]
+        self.open_trapdoor_image = dungeon_tile_images[39]
         self.opened = False
 
     def trapdoor_action(self, player):
@@ -85,5 +85,21 @@ class Trapdoor(MapTile, ActionObject):
     def update(self, *args, **kwargs):
         if self.opened:
             self.image = pg.transform.scale(self.open_trapdoor_image, (WALL_SIZE, WALL_SIZE))
+
+
+class DungeonDoor(MapTile, ActionObject):
+    def __init__(self, x, y, size):
+        from map_generation import overworld_tile_images
+        MapTile.__init__(self, overworld_tile_images[147], x, y, size)
+        ActionObject.__init__(self, self.rect, self.trapdoor_action)
+        self.last_notification_added_time = -10000
+
+    def trapdoor_action(self, player):
+        player.is_in_out_of_dungeon = True
+
+    def update(self, player, *args, **kwargs):
+        if pg.time.get_ticks() - self.last_notification_added_time > 10000:
+            visuals.add(NotificationVisual(load_images_from_folder("assets/effects/spotted"), self.rect.move(0, -60), duration=10000, iterations=20))
+            self.last_notification_added_time = pg.time.get_ticks()
 
 

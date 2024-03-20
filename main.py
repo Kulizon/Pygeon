@@ -1,12 +1,13 @@
 import pygame as pg
 
 from game import DungeonMap, Game
+from map_generation import room_width, room_height
 from shared import CHARACTER_SIZE, characters, items, traps, visuals, decorations, walls, \
- ground, screen
+    ground, screen, WALL_SIZE
 
 from characters import Enemy, Merchant, Player
 from utility import Visual, load_images_from_folder, ActionObject, Camera
-from items import Chest
+from items import Chest, DungeonDoor
 from traps import SpikeTrap
 from ui import display_ui
 
@@ -33,7 +34,6 @@ def underworld_scene(game):
             if keys[pg.K_e]:
                 for obj in action_objects:
                     performed = obj.perform_action(game.player)
-
                     if performed:
                         break
 
@@ -69,12 +69,22 @@ def underworld_scene(game):
     game_objs_grps = [ground, walls, decorations, spikes, items, characters, higher_order_traps, visuals, arrows]
     for group in game_objs_grps:
         for obj in group:
-            screen.blit(obj.image, (obj.rect.x + game.camera.rect.x, obj.rect.y + game.camera.rect.y))
+            screen.blit(obj.image, (obj.rect.x - game.camera.rect.x, obj.rect.y - game.camera.rect.y))
 
             if isinstance(obj, Merchant):
                 obj.render_items(game.camera, game.player)
 
-    game.camera.update(game.player)
+    x = int(game.player.rect.x // WALL_SIZE // 16 - 1) * WALL_SIZE * room_width
+    y = int(game.player.rect.y // WALL_SIZE // 16 - 1) * WALL_SIZE * room_width
+
+    # print(game.player.rect.x, x)
+    # print(game.player.rect.y, y)
+    # print(WALL_SIZE * room_width)
+
+    restriction_rect = pg.Rect(x, y, WALL_SIZE * room_width, WALL_SIZE * room_height)
+    game.camera.update(game.player, restriction_rect)
+
+    #print(game.player.rect.x - game.camera.rect.x, game.player.rect.y - game.camera.rect.y)
 
     for trap in traps:
         if game.player.damage_collider.collision_rect.colliderect(trap.rect) and trap.damage > 0:
@@ -148,36 +158,71 @@ def underworld_scene(game):
 
             visuals.add(attack_visual)
 
-    display_ui(game.player.coins, game.player.health, gmap.discovered_mini_map, gmap.current_map_cell, game.player.number_of_keys, defeat_timer_seconds, fps)
+    display_ui(game.player.coins, game.player.health, game.map.discovered_mini_map, game.map.current_map_cell, game.player.number_of_keys, defeat_timer_seconds, fps)
 
     visuals.update(game.camera)
     decorations.update()
     traps.update(game.player)
     items.update(game.player)
     characters.update(game.camera, game.player.damage_collider.collision_rect)
-    current_room_changed = gmap.update(game.player)
+    current_room_changed = game.map.update(game.player)
 
     if current_room_changed:
-        game.render_appropriate_room(gmap.current_map_cell, gmap.room_map)
+        game.render_appropriate_room(game.map.current_map_cell, game.map.room_map)
 
     if game.player.is_next_level:
         game.player.is_next_level = False
-        generate_new_level(game.player)
+        generate_new_level(game.player, "underworld")
 
 
 def overworld_scene(game):
-    pass
+    screen.fill((0, 0, 0))
+
+    action_objects = []
+    for wall in walls:
+        if isinstance(wall, DungeonDoor):
+            wall.update(game.player)
+            action_objects.append(wall)
+
+    for event in pg.event.get():
+        keys = pg.key.get_pressed()
+        if event.type == pg.QUIT:
+            game.running = False
+
+        if event.type == pg.KEYDOWN:
+            if keys[pg.K_e]:
+                for obj in action_objects:
+                    performed = obj.perform_action(game.player)
+                    print(performed)
+                    if performed:
+                        break
+
+    game_objs_grps = [ground, walls, items, characters, decorations, visuals]
+    for group in game_objs_grps:
+        for obj in group:
+            screen.blit(obj.image, (obj.rect.x - game.camera.rect.x, obj.rect.y - game.camera.rect.y))
+
+    game.camera.update(game.player)
+
+    visuals.update(game.camera)
+    decorations.update()
+    traps.update(game.player)
+    items.update(game.player)
+    characters.update(game.camera, game.player.damage_collider.collision_rect)
+
+    if game.player.is_in_out_of_dungeon:
+        game.player.is_in_out_of_dungeon = False
+        generate_new_level(game.player, "underworld")
 
 
 
 pg.init()
 clock = pg.time.Clock()
-gmap = DungeonMap()
-game = Game(gmap)
+game = Game()
 
-def generate_new_level(current_player):
+
+def generate_new_level(current_player, scene):
     global game
-    global gmap
 
     game.clear_groups()
 
@@ -186,9 +231,7 @@ def generate_new_level(current_player):
     else:
         characters.remove([char for char in characters.sprites() if not isinstance(char, Player)])
 
-    gmap = DungeonMap()
-    game = Game(gmap, current_player)
-
+    game = Game(current_player, scene)
 
 
 while game.running:
@@ -204,7 +247,7 @@ while game.running:
     if game.scene == "underworld":
         underworld_scene(game)
     elif game.scene == "overworld":
-        overworld_scene()
+        overworld_scene(game)
 
     pg.display.flip()
     clock.tick(60)
