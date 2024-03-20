@@ -24,10 +24,15 @@ class Camera:
         # x = max(self.width - SCREEN_WIDTH, x)
         # y = max(self.height - SCREEN_HEIGHT, y)
 
-        x = min(restriction_rect.right, x)
+        # todo : restrictions work ok, now center out
+        x = min(restriction_rect.right + (restriction_rect.width - SCREEN_WIDTH), x)
         y = min(restriction_rect.bottom + (restriction_rect.height - SCREEN_HEIGHT), y)
-        x = max(restriction_rect.left, x)
+        x = max(restriction_rect.left + restriction_rect.width, x)
         y = max(restriction_rect.top + restriction_rect.height, y)
+
+        # todo: maybe cneter after this
+        #y += (restriction_rect.height - SCREEN_HEIGHT)//2
+        x += (restriction_rect.width - SCREEN_WIDTH)//2
 
         self.rect = pg.Rect(x, y, self.width, self.height)
 
