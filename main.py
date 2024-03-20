@@ -74,8 +74,8 @@ def underworld_scene(game):
             if isinstance(obj, Merchant):
                 obj.render_items(game.camera, game.player)
 
-    x = int(game.player.rect.x // WALL_SIZE // 16 - 1) * WALL_SIZE * room_width
-    y = int(game.player.rect.y // WALL_SIZE // 16 - 1) * WALL_SIZE * room_width
+    x = int(game.player.damage_collider.collision_rect.centerx // WALL_SIZE // 16 - 1) * WALL_SIZE * room_width
+    y = int(game.player.damage_collider.collision_rect.centery // WALL_SIZE // 16 - 1) * WALL_SIZE * room_width
 
     # print(game.player.rect.x, x)
     # print(game.player.rect.y, y)
