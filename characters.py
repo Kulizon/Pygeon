@@ -341,7 +341,7 @@ class Player(SlashAttacker):
         self.change_images(self.attack_images[1 if i == 3 else 3 if i == 1 else i])
 
     def stop_dash(self):
-        self.change_images(self.walking_images[self.get_direction_index(self.move_direction)])
+        self.change_images(self.idle_images[self.get_direction_index(self.move_direction)])
         self.mode = "idle"
         self.flip_model_on_move(1 if self.flipped_x else 0)
         self.last_dash_time = pg.time.get_ticks()

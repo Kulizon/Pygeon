@@ -5,8 +5,8 @@ pg.init()
 screen = pg.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
 
 
-CHARACTER_SIZE = 55
-WALL_SIZE = 55
+CHARACTER_SIZE = 65
+WALL_SIZE = 65
 
 characters = pg.sprite.Group()
 traps = pg.sprite.Group()

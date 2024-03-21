@@ -120,7 +120,7 @@ def display_mini_map(map, current_cell):
         for x in range(start_x, end_x):
             mini_map[center_y - (cell_position[1] - y)][center_x - (cell_position[0] - x)] = map[y][x]
 
-    screen.blit(mini_map_background_image, (SCREEN_WIDTH - mini_map_background_image.get_width() - screen_gap, screen_gap, mini_map_size, mini_map_size))
+    #screen.blit(mini_map_background_image, (SCREEN_WIDTH - mini_map_background_image.get_width() - screen_gap, screen_gap, mini_map_size, mini_map_size))
 
     for y in range(5):
         for x in range(5):
