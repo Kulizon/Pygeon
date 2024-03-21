@@ -35,7 +35,7 @@ class DungeonMap():
         self.current_map_cell = 0
 
     def update(self, player):
-        new_cell = self.room_map[int(player.rect.y // WALL_SIZE // 16)][int(player.rect.x // WALL_SIZE // 16)]
+        new_cell = self.room_map[int(player.rect.centery // WALL_SIZE // 16)][int(player.rect.centerx // WALL_SIZE // 16)]
 
         if self.current_map_cell != new_cell:
             #update mini-map
@@ -59,7 +59,7 @@ class Game():
         if self.scene == "underworld":
             self.map = DungeonMap()
 
-            self.camera = Camera(self.map.width_px, self.map.height_px)
+
             player_start_x = self.map.width_px // 2 - CHARACTER_SIZE
             player_start_y = self.map.height_px // 2 - CHARACTER_SIZE
 
@@ -73,6 +73,8 @@ class Game():
                 self.player.rect.x = player_start_x
                 self.player.rect.y = player_start_y
 
+            self.camera = Camera(self.map.width_px, self.map.height_px, self.player)
+
             merchant = Merchant(self.map.width_px // 2 - CHARACTER_SIZE, self.map.height_px // 2 - 220 - CHARACTER_SIZE)
             ch1 = SkeletonScytheEnemy(self.map.width_px // 2, self.map.height_px // 2 + 220)
             ch2 = SkeletonEnemy(self.map.width_px // 2, self.map.height_px // 2 - 220)
@@ -83,13 +85,11 @@ class Game():
         elif self.scene == "overworld":
             self.map = OverworldMap()
 
-            print(self.map.width_px)
-
-            self.camera = Camera(self.map.width_px, self.map.height_px)
             player_start_x = self.map.width_px // 2 - CHARACTER_SIZE - 140
             player_start_y = self.map.height_px // 2 - CHARACTER_SIZE
 
             self.player = Player(player_start_x, player_start_y)
+            self.camera = Camera(self.map.width_px, self.map.height_px, self.player)
 
             characters.add(self.player)
 

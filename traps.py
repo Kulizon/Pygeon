@@ -59,7 +59,8 @@ class FlamethrowerTrap(Trap):
 
 class ArrowTrap(Trap):
     def __init__(self, x, y, attack_dir):
-        size = [(abs(attack_dir[0]) + 1) * WALL_SIZE, (abs(attack_dir[1]) + 1) * WALL_SIZE]
+        self.size_modifier = 0.7
+        size = [(abs(attack_dir[0]) + 1) * WALL_SIZE * self.size_modifier, (abs(attack_dir[1]) + 1) * WALL_SIZE * self.size_modifier]
 
         if attack_dir[0]:
             images_path = "assets/items_and_traps_animations/arrow_horizontal"
@@ -67,7 +68,10 @@ class ArrowTrap(Trap):
             images_path = "assets/items_and_traps_animations/arrow_vertical"
 
         if attack_dir[0] == -1:
-            x -= WALL_SIZE
+            x -= WALL_SIZE * self.size_modifier + 5
+
+        x += (WALL_SIZE * (1-self.size_modifier))//1.5
+        y += (WALL_SIZE * (1-self.size_modifier))//2
 
         rotate = 180 if attack_dir[0] == 1 else 0
 
@@ -78,14 +82,15 @@ class ArrowTrap(Trap):
     def update(self, *args, **kwargs):
         super().update(*args, **kwargs)
 
-        arrow_width = CHARACTER_SIZE * 0.65
-        arrow_height = CHARACTER_SIZE * 0.47
+        arrow_width = CHARACTER_SIZE * 0.65 * self.size_modifier
+        arrow_height = CHARACTER_SIZE * 0.47 * self.size_modifier
 
         if self.attack_dir[1]:
             arrow_width, arrow_height = arrow_height, arrow_width
 
         if self.cur_frame == self.last_frame:
-            arrow_rect = pg.Rect(self.rect.x + CHARACTER_SIZE * self.attack_dir[0], self.rect.y + CHARACTER_SIZE * self.attack_dir[1], arrow_width, arrow_height)
+            arrow_rect = pg.Rect(self.rect.x + CHARACTER_SIZE * self.attack_dir[0] - (CHARACTER_SIZE * 0.65 * (1 - self.size_modifier) // 2),self.rect.y + CHARACTER_SIZE * self.attack_dir[1] - (CHARACTER_SIZE * 0.47 * (1 - self.size_modifier)), arrow_width, arrow_height)
+
             new_arrow = pg.sprite.Sprite()
             new_arrow.rect = arrow_rect
 

@@ -358,7 +358,7 @@ class Player(SlashAttacker):
         if pg.time.get_ticks() - self.last_move_animation > 220:
             visuals.add(Visual(self.move_animation_images,
                                self.rect.move(-25 * self.move_direction[0], 10 - 40 * self.move_direction[1]).inflate(
-                                   -70, -70), pg.time.get_ticks(), 250))
+                                   -90, -90), pg.time.get_ticks(), 250))
             self.last_move_animation = pg.time.get_ticks()
 
     def move_player(self, dx, dy, ignore_dash_check=False):
@@ -669,19 +669,19 @@ class MerchantItem(Item, ActionObject):
             words = self.description.split(" ")
             longest_word = max(self.description.split(), key=len)
 
-            box_width = font_s.render(longest_word, True, (0,0,0)).get_width()
+            box_width = font_s.render(longest_word, True, (0, 0, 0)).get_width()
 
             off_x = 20
             off_y = 20
-            pg.draw.rect(screen, (0, 0, 0), (
-                self.rect.centerx + camera.rect.x - box_width//2 - off_x//2, self.rect.y + camera.rect.y - len(words) * font_s.get_height() - off_y//2 - 20,
-                box_width + off_x, len(words) * font_s.get_height() + off_y))
+            transparent_surface = pg.Surface((box_width + off_x, len(words) * font_s.get_height() + off_y), pg.SRCALPHA)
+            transparent_surface.fill((0, 0, 0, 168))
+            screen.blit(transparent_surface, (self.rect.centerx - camera.rect.x - box_width//2 - off_x//2, self.rect.y - camera.rect.y - len(words) * font_s.get_height() - off_y//2 - 20))
 
             for i, word in enumerate(words):
                 description_text = font_s.render(word, True, (255, 255, 255))
 
-                screen.blit(description_text, (self.rect.centerx + camera.rect.x - description_text.get_width()//2,
-                                               self.rect.y + camera.rect.y - (len(words) - i) * description_text.get_height() - 20))
+                screen.blit(description_text, (self.rect.centerx - camera.rect.x - description_text.get_width()//2,
+                                               self.rect.y - camera.rect.y - (len(words) - i) * description_text.get_height() - 20))
 
 
 class Merchant(Character):

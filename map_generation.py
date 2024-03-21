@@ -1,6 +1,7 @@
 import random
 from copy import deepcopy, copy
 
+from characters import SkeletonScytheEnemy
 from tiles import MapTile, AnimatedMapTile
 from shared import WALL_SIZE, decorations, items, traps, ground, walls
 from utility import convert_csv_to_2d_list, load_tileset
@@ -269,6 +270,27 @@ def generate_flamethrower(room_layout, decorations_layout, x_off, y_off, room_id
 
     traverse_rooms_in_random_order(room_layout, decorations_layout, x_off, y_off, room_id, place_flamethrower)
 
+def generate_enemy(room_layout, decorations_layout, x_off, y_off, room_id):
+    def place_enemy(room_layout, decorations_layout, grid_position, pos_x, pos_y, room_id):
+        row, col = grid_position
+
+        neighbors = [(row, col), (row - 1, col), (row + 1, col), (row, col - 1), (row, col + 1), (row - 1, col - 1), (row + 1, col + 1), (row + 1, col - 1), (row - 1, col + 1)]
+
+        for neighbor_row, neighbor_col in neighbors:
+            if 0 <= neighbor_row < len(room_layout) and 0 <= neighbor_col < len(room_layout[0]):
+                neighbor_room_tile_id = room_layout[neighbor_row][neighbor_col]
+                neighbor_decorations_tile_id = decorations_layout[neighbor_row][neighbor_col]
+
+                if not(neighbor_room_tile_id not in wall_ids and neighbor_decorations_tile_id == -1 and neighbor_room_tile_id != void_tile_id):
+                    return False
+
+        enemy = SkeletonScytheEnemy((pos_x) * WALL_SIZE, (pos_y) * WALL_SIZE)
+        objects_map[room_id]["characters"].append(enemy)
+
+        return True
+
+    traverse_rooms_in_random_order(room_layout, decorations_layout, x_off, y_off, room_id, place_enemy)
+
 
 def generate_arrow_trap(room_layout, decorations_layout, x_off, y_off, room_id):
     def place_arrow_trap(room_layout, decorations_layout, grid_position, pos_x, pos_y, room_id):
@@ -378,6 +400,10 @@ def generate_map(room_map):
 
         # generate traps and items
         if room_id != 1:
+            for prob in [1, 0.5, 0.25]:
+                if random.random() < prob:
+                    generate_enemy(room_layout, decorations_layout, x_off, y_off, room_id)
+
             for prob in [1, 0.5, 0.25]:
                 if random.random() < prob:
                     generate_flamethrower(room_layout, decorations_layout, x_off, y_off, room_id)

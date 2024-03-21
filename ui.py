@@ -122,11 +122,11 @@ def display_mini_map(map, current_cell):
 
     #screen.blit(mini_map_background_image, (SCREEN_WIDTH - mini_map_background_image.get_width() - screen_gap, screen_gap, mini_map_size, mini_map_size))
 
+    mini_map_width_px = 5 * (cell_width + gap)
     for y in range(5):
         for x in range(5):
-            display_x = SCREEN_WIDTH - mini_map_background_image.get_width() - screen_gap + x * (cell_width + gap)
-            display_x += (mini_map_background_image.get_width() - cells_gap)//2
-            display_y = y * (cell_height + gap) + screen_gap + cells_gap//3
+            display_x = SCREEN_WIDTH - mini_map_width_px + x * (cell_width + gap) - screen_gap * 2
+            display_y = y * (cell_height + gap) + screen_gap
             cell_value = mini_map[y][x]
             #color = (255, 0, 0) if cell_value == current_cell else (0, 255, 0) if cell_value != 0 else (0, 0, 0)
             if cell_value == current_cell:

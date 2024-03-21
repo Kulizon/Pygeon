@@ -7,13 +7,18 @@ import os
 
 
 class Camera:
-    def __init__(self, width, height):
-        self.rect = pg.Rect(0, 0, width, height)
+    def __init__(self, width, height, player):
+        self.rect = pg.Rect(player.rect.centerx - (SCREEN_WIDTH // 2), player.rect.centery - (SCREEN_HEIGHT // 2), width, height)
 
         self.width = width
         self.height = height
         self.initial_width = width
         self.initial_height = height
+
+        self.target_x = self.rect.x
+        self.target_y = self.rect.y
+
+        self.smoothness = 0.12
 
     def update(self, player, restriction_rect):
         x = player.rect.centerx - (SCREEN_WIDTH // 2)
@@ -34,7 +39,14 @@ class Camera:
         if restriction_rect.width < SCREEN_WIDTH:
             x += (restriction_rect.width - SCREEN_WIDTH)//2
 
-        self.rect = pg.Rect(x, y, self.width, self.height)
+        self.target_x = x
+        self.target_y = y
+
+        self.rect.x += (self.target_x - self.rect.x) * self.smoothness
+        self.rect.y += (self.target_y - self.rect.y) * self.smoothness
+
+        # self.rect.x = max(restriction_rect.left, min(self.rect.x, restriction_rect.right - self.width))
+        # self.rect.y = max(restriction_rect.top, min(self.rect.y, restriction_rect.bottom - self.height))
 
 def load_images_from_folder(path):
     images = []
