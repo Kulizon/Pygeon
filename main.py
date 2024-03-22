@@ -114,13 +114,13 @@ def underworld_scene(game):
 
     for char in characters:
         # display health bar
-        if isinstance(char, Enemy) and char.health < char.full_health:
+        if not isinstance(char, (Player, Merchant)) and char.health < char.full_health:
             health_bar_length = 60
             health_bar_height = 10
             current_health_length = (char.health / char.full_health) * health_bar_length
 
-            pos_x = char.rect.x - (health_bar_length - char.size[0]) // 2 + game.camera.rect.x
-            pos_y = char.rect.y - 14 - health_bar_height // 2 + game.camera.rect.y
+            pos_x = char.rect.x - (health_bar_length - char.size[0]) // 2 - game.camera.rect.x
+            pos_y = char.rect.y - 14 - health_bar_height // 2 - game.camera.rect.y
 
             pg.draw.rect(screen, (0, 0, 0), (pos_x, pos_y, health_bar_length, health_bar_height))
             pg.draw.rect(screen, (255, 0, 0), (pos_x, pos_y, current_health_length, health_bar_height))

@@ -185,7 +185,6 @@ class Character(pg.sprite.Sprite, Animated):
 
         if dx == 0 and dy == 0:
             self.friction = self.default_friction
-            return False
 
         is_collision, is_collision_along_x, is_collision_along_y = False, False, False
         for obj in walls:
@@ -208,6 +207,9 @@ class Character(pg.sprite.Sprite, Animated):
                 self.rect.x += dx
             elif not is_collision_along_y:
                 self.rect.y += dy
+
+        if not isinstance(self, Player) and self.health < self.full_health:
+            print(dx, dy, is_collision,  (is_collision_along_x or dx == 0), (is_collision_along_y or dy == 0))
 
         return not (is_collision and (is_collision_along_x or dx == 0) and (is_collision_along_y or dy == 0))
 
@@ -374,10 +376,6 @@ class Player(SlashAttacker):
         self.change_idle_images(dx, dy)
         dx, dy = self.update_move_values(dx, dy)
 
-        if self.took_damage:
-            dx = 0
-            dy = 0
-
         self.change_walking_images(dx, dy)
         moved = self.move_if_possible(dx, dy)
 
@@ -454,7 +452,7 @@ class Enemy(Character):
                 return True
         return False
 
-    def move_enemy(self, goal_position):
+    def move_enemy(self, goal_position, player_rect=pg.Rect(0,0,0,0)):
         pos_x, pos_y = goal_position
         dx = pos_x - self.rect.x
         dy = pos_y - self.rect.y
@@ -471,8 +469,9 @@ class Enemy(Character):
         distance = math.sqrt((self.damage_collider.collision_rect[0] - goal_position[0]) ** 2 + (
                 self.damage_collider.collision_rect[1] - goal_position[1]) ** 2)
 
-        if distance < 3 or not moved or (dx and dy == 0):
-            self.last_known_player_position = None
+        if distance < 3 or not moved:
+            if self.last_known_player_position is not None and not self.in_line_of_sight(player_rect, walls):
+                self.last_known_player_position = None
             self.roam_position = None
             self.last_roam_time = pg.time.get_ticks()
             self.last_turn_around_animation_time = pg.time.get_ticks()
@@ -494,6 +493,7 @@ class Enemy(Character):
             self.about_to_attack_time = pg.time.get_ticks()
 
     def roam_to(self, camera):
+        # draw destination
         self.in_line_of_sight(pg.Rect(self.roam_position[0], self.roam_position[1], 1, 1), walls, True, camera)
 
         self.move_enemy(self.roam_position)
@@ -521,7 +521,7 @@ class Enemy(Character):
         distance_to_player = (self.rect.x - player_rect.x) ** 2 + (self.rect.y - player_rect.y) ** 2
 
         if distance_to_player > self.distance_prepare_attack:
-            self.move_enemy((player_rect.x, player_rect.y))
+            self.move_enemy((player_rect.x, player_rect.y), player_rect)
         else:
             self.prepare_attack(player_rect)
 
@@ -529,14 +529,14 @@ class Enemy(Character):
         super().update(camera)
         # handle knockback
         if self.took_damage and (self.velocity_x > 0.05 or self.velocity_y > 0.05):
-            self.move_enemy([0, 0])
+            self.move_enemy([0, 0], player_rect)
 
         if self.about_to_attack_time != 0:
             self.launch_attack()
         elif self.in_line_of_sight(player_rect, walls, False, camera):
             self.handle_spotting(player_rect)
         elif self.last_known_player_position:
-            self.move_enemy(self.last_known_player_position)
+            self.move_enemy(self.last_known_player_position, player_rect)
         elif self.roam_position:
             self.roam_to(camera)
         else:

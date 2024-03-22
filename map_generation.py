@@ -1,7 +1,7 @@
 import random
 from copy import deepcopy, copy
 
-from characters import SkeletonScytheEnemy
+from characters import SkeletonScytheEnemy, SkeletonEnemy
 from tiles import MapTile, AnimatedMapTile
 from shared import WALL_SIZE, decorations, items, traps, ground, walls
 from utility import convert_csv_to_2d_list, load_tileset
@@ -284,7 +284,9 @@ def generate_enemy(room_layout, decorations_layout, x_off, y_off, room_id):
                 if not(neighbor_room_tile_id not in wall_ids and neighbor_decorations_tile_id == -1 and neighbor_room_tile_id != void_tile_id):
                     return False
 
-        enemy = SkeletonScytheEnemy((pos_x) * WALL_SIZE, (pos_y) * WALL_SIZE)
+        enemies = [SkeletonScytheEnemy, SkeletonEnemy]
+
+        enemy = random.choice(enemies)((pos_x) * WALL_SIZE, (pos_y) * WALL_SIZE)
         objects_map[room_id]["characters"].append(enemy)
 
         return True
@@ -327,8 +329,8 @@ def generate_spike_trap(room_layout, decorations_layout, x_off, y_off, room_id, 
         room_tile_id = room_layout[row][col]
         decorations_tile_id = decorations_layout[row][col]
 
-        if room_tile_id != void_tile_id and room_tile_id not in wall_ids and decorations_tile_id == -1:
-
+        if room_tile_id != void_tile_id and room_tile_id not in wall_ids and decorations_tile_id == -1 \
+                and room_tile_id not in []: # todo: a function that return n indexes from edges
             spike_trap = SpikeTrap(pos_x * WALL_SIZE, pos_y * WALL_SIZE)
             #traps.add(spike_trap)
             objects_map[room_id]["traps"].append(spike_trap)
