@@ -158,7 +158,7 @@ class Character(pg.sprite.Sprite, Animated):
         self.velocity_x *= (1 - self.friction)
         self.velocity_y *= (1 - self.friction)
 
-        min_velocity = 0.1
+        min_velocity = 0.005
         if abs(self.velocity_y) < min_velocity:
             self.velocity_y = 0
         if abs(self.velocity_x) < min_velocity:
@@ -459,11 +459,16 @@ class Enemy(Character):
 
         moved = self.move_if_possible(dx, dy)
 
+        # if not moved:
+        #     goal_x +=
+
+
+
         distance = math.sqrt((self.rect.centerx - goal_x) ** 2 + (self.rect.centery - goal_y) ** 2)
 
-        print(distance, goal_position, self.rect.center)
+        print(moved, distance, goal_position, self.rect.center, dx, dy)
 
-        if distance < 10 or not moved:
+        if distance < 15 or not moved:
             if self.last_known_player_position is not None and not self.in_line_of_sight(player_rect, walls):
                 self.last_known_player_position = None
             self.roam_position = None
@@ -559,8 +564,8 @@ class Enemy(Character):
     def in_line_of_sight(self, position_rect, obstacles, ignore_view_distance=False, camera=None):
         # draw the vision ray
         if camera:
-            vision_start = self.rect.centerx + camera.rect.x, self.rect.centery + camera.rect.y
-            pos = position_rect.centerx + camera.rect.x, position_rect.centery + camera.rect.y
+            vision_start = self.rect.centerx - camera.rect.x, self.rect.centery - camera.rect.y
+            pos = position_rect.centerx - camera.rect.x, position_rect.centery - camera.rect.y
 
             pg.draw.line(screen, (255, 255, 0), vision_start, pos, 2)
 
@@ -568,8 +573,10 @@ class Enemy(Character):
             return False
 
         for obstacle in obstacles:
-            if obstacle.rect.clipline((self.rect.center, position_rect.center)):
+            if (obstacle.rect.move(-1 * math.copysign(15, position_rect.centerx), -1 * math.copysign(15, position_rect.centery))
+                    .clipline(self.rect.center,position_rect.center)):
                 return False
+
         return True
 
     def attack_function(self):
