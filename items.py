@@ -99,7 +99,7 @@ class DungeonDoor(MapTile, ActionObject):
 
     def update(self, player, *args, **kwargs):
         if pg.time.get_ticks() - self.last_notification_added_time > 10000:
-            visuals.add(NotificationVisual(load_images_from_folder("assets/effects/spotted"), self.rect.move(0, -60), duration=10000, iterations=20))
+            visuals.add(NotificationVisual(load_images_from_folder("assets/effects/spotted"), self.rect.move(0, -80), duration=10000, iterations=20))
             self.last_notification_added_time = pg.time.get_ticks()
 
 

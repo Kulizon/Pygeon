@@ -2,7 +2,7 @@ import random
 from copy import deepcopy, copy
 
 from characters import SkeletonScytheEnemy, SkeletonEnemy
-from tiles import MapTile, AnimatedMapTile
+from tiles import MapTile, AnimatedMapTile, FurnitureToBuyTile
 from shared import WALL_SIZE, decorations, items, traps, ground, walls
 from utility import convert_csv_to_2d_list, load_tileset
 from items import Key, Chest, Trapdoor, DungeonDoor
@@ -51,19 +51,18 @@ def generate_overworld():
                 if tile_id == -1:
                     continue
 
+                # todo: instead of this, group every furniture
                 door_tile_id = 217
-                obj = MapTile(overworld_tile_images[tile_id], col, row, 50)
+                obj = MapTile(overworld_tile_images[tile_id], col, row, WALL_SIZE - 5)
                 if tile_id == door_tile_id:
-                    walls.add(DungeonDoor(col, row, 50))
+                    walls.add(DungeonDoor(col, row, WALL_SIZE - 5))
                 if tile_id in floor_tiles + carpet_tiles + door_tiles + stair_tiles:
                     ground.add(obj)
                 elif tile_id in table_tiles:
                     decorations.add(obj)
                 else:
+                    obj = FurnitureToBuyTile(overworld_tile_images[tile_id], col, row, 0, tile_id, WALL_SIZE - 5)
                     walls.add(obj)
-    
-                # elif tile == ...
-                #walls.add(layer[row][col])
 
     map_width_px = len(overworld_tile_map_layers[0][0]) * WALL_SIZE
     map_height_px = len(overworld_tile_map_layers[0]) * WALL_SIZE

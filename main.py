@@ -6,6 +6,7 @@ from shared import CHARACTER_SIZE, characters, items, traps, visuals, decoration
     ground, screen, WALL_SIZE
 
 from characters import Enemy, Merchant, Player
+from tiles import FurnitureToBuyTile
 from utility import Visual, load_images_from_folder, ActionObject, Camera
 from items import Chest, DungeonDoor
 from traps import SpikeTrap
@@ -76,10 +77,6 @@ def underworld_scene(game):
 
     x = int(game.player.damage_collider.collision_rect.centerx // WALL_SIZE // 16 - 1) * WALL_SIZE * room_width
     y = int(game.player.damage_collider.collision_rect.centery // WALL_SIZE // 16 - 1) * WALL_SIZE * room_width
-
-    # print(game.player.rect.x, x)
-    # print(game.player.rect.y, y)
-    # print(WALL_SIZE * room_width)
 
     restriction_rect = pg.Rect(x, y, WALL_SIZE * room_width, WALL_SIZE * room_height)
     game.camera.update(game.player, restriction_rect)
@@ -178,7 +175,7 @@ def overworld_scene(game):
 
     action_objects = []
     for wall in walls:
-        if isinstance(wall, DungeonDoor):
+        if isinstance(wall, DungeonDoor) or isinstance(wall, FurnitureToBuyTile):
             wall.update(game.player)
             action_objects.append(wall)
 
@@ -192,6 +189,7 @@ def overworld_scene(game):
                 for obj in action_objects:
                     performed = obj.perform_action(game.player)
                     if performed:
+                        print(performed)
                         break
 
     game_objs_grps = [ground, walls, items, characters, decorations, visuals]
@@ -201,6 +199,7 @@ def overworld_scene(game):
 
     game.camera.update(game.player)
 
+    walls.update(game.player)
     visuals.update(game.camera)
     decorations.update()
     traps.update(game.player)

@@ -520,10 +520,12 @@ class Enemy(Character):
         self.move_enemy(self.roam_position)
 
     def choose_where_to_roam(self, camera):
-        min_range = 150
-        max_range = 250
-        random_point = pg.Rect(self.rect.move(random.randint(min_range, max_range) * [-1, 1][random.randint(0, 1)],
-                                              random.randint(min_range, max_range) * [-1, 1][random.randint(0, 1)]))
+        min_range = 0
+        max_range = random.randint(200, 400)
+
+        random_distance = random.randint(min_range, max_range)
+        random_point = pg.Rect(self.rect.move(random_distance * [-1, 1][random.randint(0, 1)],
+                                              (max_range - random_distance) * [-1, 1][random.randint(0, 1)]))
         random_point.width = 1
         random_point.height = 1
 
@@ -571,7 +573,6 @@ class Enemy(Character):
                 characters.remove(self)
 
             if self.cur_frame != self.last_frame:
-                self.flip_model_on_move(self.move_direction[0])
                 self.animate_new_frame()
             # else:
             #     characters.remove(self)

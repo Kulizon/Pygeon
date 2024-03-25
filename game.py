@@ -52,13 +52,12 @@ class DungeonMap():
 
 
 class Game():
-    def __init__(self, current_player=None, scene="underworld"):
+    def __init__(self, current_player=None, scene="overworld"):
         self.scene = scene
         self.running = True
 
         if self.scene == "underworld":
             self.map = DungeonMap()
-
 
             player_start_x = self.map.width_px // 2 - CHARACTER_SIZE
             player_start_y = self.map.height_px // 2 - CHARACTER_SIZE
@@ -82,7 +81,7 @@ class Game():
         elif self.scene == "overworld":
             self.map = OverworldMap()
 
-            player_start_x = self.map.width_px // 2 - CHARACTER_SIZE - 140
+            player_start_x = self.map.width_px // 2 - CHARACTER_SIZE - 180
             player_start_y = self.map.height_px // 2 - CHARACTER_SIZE
 
             self.player = Player(player_start_x, player_start_y)
