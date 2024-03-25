@@ -162,7 +162,7 @@ class NotificationVisual(Visual):
 
 
 class ActionObject:
-    def __init__(self, rect, action_to_perform, max_distance = CHARACTER_SIZE):
+    def __init__(self, rect, action_to_perform, max_distance=CHARACTER_SIZE):
         self.rect = rect
         self.action_to_perform = action_to_perform
         self.max_distance = max_distance
@@ -175,9 +175,9 @@ class ActionObject:
 
         return distance < self.max_distance
 
-    def perform_action(self, player):
+    def perform_action(self, player, action_objects):
         if self.is_close(player):
-            self.action_to_perform(player)
+            self.action_to_perform(player, action_objects)
             return True
         return False
 

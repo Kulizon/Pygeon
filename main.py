@@ -34,7 +34,7 @@ def underworld_scene(game):
         if event.type == pg.KEYDOWN:
             if keys[pg.K_e]:
                 for obj in action_objects:
-                    performed = obj.perform_action(game.player)
+                    performed = obj.perform_action(game.player, action_objects)
                     if performed:
                         break
 
@@ -175,7 +175,7 @@ def overworld_scene(game):
 
     action_objects = []
     for wall in walls:
-        if isinstance(wall, DungeonDoor) or isinstance(wall, FurnitureToBuyTile):
+        if isinstance(wall, DungeonDoor) or (isinstance(wall, FurnitureToBuyTile) and not wall.bought):
             wall.update(game.player)
             action_objects.append(wall)
 
@@ -187,7 +187,7 @@ def overworld_scene(game):
         if event.type == pg.KEYDOWN:
             if keys[pg.K_e]:
                 for obj in action_objects:
-                    performed = obj.perform_action(game.player)
+                    performed = obj.perform_action(game.player, action_objects)
                     if performed:
                         print(performed)
                         break
