@@ -189,9 +189,10 @@ class Collider():
         self.debug_color = debug_color
 
     def update(self, rect, camera=None):
+        print(camera)
         self.collision_rect = pg.Rect(rect.x + self.offset[0], rect.y + self.offset[1], self.collision_size[0], self.collision_size[1])
         if camera:
-            rect = self.collision_rect.move(camera.rect.x, camera.rect.y)
+            rect = self.collision_rect.move(-camera.rect.x, -camera.rect.y)
             pg.draw.line(screen, self.debug_color, rect.topleft, rect.topright)
             pg.draw.line(screen, self.debug_color, rect.bottomleft, rect.bottomright)
             pg.draw.line(screen, self.debug_color, rect.topleft, rect.bottomleft)

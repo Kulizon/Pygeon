@@ -402,14 +402,14 @@ def generate_map(room_map):
 
         # generate traps and items
         if room_id != 1:
-            # for prob in [1, 0.5, 0.25]:
-            #     if random.random() < prob:
-            #         generate_enemy(room_layout, decorations_layout, x_off, y_off, room_id)
-
             for prob in [1, 0.5, 0.25]:
                 if random.random() < prob:
+                    generate_enemy(room_layout, decorations_layout, x_off, y_off, room_id)
+
+            for prob in [0.7, 0.3, 0.15]:
+                if random.random() < prob:
                     generate_flamethrower(room_layout, decorations_layout, x_off, y_off, room_id)
-            for prob in [0.7, 0.4, 0.25]:
+            for prob in [0.3, 0.15, 0.05]:
                 if random.random() < prob:
                     generate_arrow_trap(room_layout, decorations_layout, x_off, y_off, room_id)
 

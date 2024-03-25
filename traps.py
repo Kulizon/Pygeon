@@ -99,7 +99,7 @@ class ArrowTrap(Trap):
                 new_arrow.rect.y += (CHARACTER_SIZE - arrow_height) // 2
             else:
                 image_path = "assets/arrow_vertical.png"
-                new_arrow.rect.x += (CHARACTER_SIZE - arrow_width) // 2
+                new_arrow.rect.x += (CHARACTER_SIZE - arrow_width) // 2 - 5
 
             new_arrow.image = pg.transform.scale(pg.image.load(image_path), (arrow_width, arrow_height))
             new_arrow.image = pg.transform.rotate(new_arrow.image, 180 if self.attack_dir[0] == 1 else 0)

@@ -193,7 +193,6 @@ def overworld_scene(game):
             if keys[pg.K_e]:
                 for obj in action_objects:
                     performed = obj.perform_action(game.player)
-                    print(performed)
                     if performed:
                         break
 

@@ -10,6 +10,8 @@ from utility import Animated, load_images_from_folder, Visual, NotificationVisua
 player_images = load_tileset("assets/player_character/player.png", 32, 32)
 player_upgrades_images = load_tileset("assets/food.png", 16, 16)[0:35]
 
+skeleton_enemy_images = load_tileset("assets/skeleton_enemy/skeleton_enemy.png", 32, 32)
+
 class Character(pg.sprite.Sprite, Animated):
     def __init__(self, x, y, images, size):
         super().__init__()
@@ -35,11 +37,11 @@ class Character(pg.sprite.Sprite, Animated):
         self.normal_frame_duration = self.frame_duration
         self.attack_frame_duration = 80
 
-        self.idle_images = [[player_images[200]], [player_images[210]], [player_images[220]], [player_images[230]]]
-        self.walking_images = [player_images[10:18], player_images[20:28], player_images[30:38], player_images[40:48]]
-        self.dashing_images = [player_images[110:118], player_images[110]]
-        self.attack_images = [player_images[160:166], player_images[170:176], player_images[180:186], player_images[190:196]]
-        self.death_images = [player_images[150:158]]
+        self.idle_images = None
+        self.walking_images = None
+        self.dashing_images = None
+        self.attack_images = None
+        self.death_images = None
 
         self.velocity_x = 0
         self.velocity_y = 0
@@ -48,7 +50,6 @@ class Character(pg.sprite.Sprite, Animated):
         self.default_friction = 0.8
         self.friction = self.default_friction
         self.took_damage = False
-
 
     def knockback(self, enemy):
         enemy_direction = [enemy.rect.centerx - self.rect.centerx, enemy.rect.centery - self.rect.centery]
@@ -96,7 +97,6 @@ class Character(pg.sprite.Sprite, Animated):
         elif dx > 0 and self.flipped_x:
             self.flipped_x = False
             self.animate()
-
 
     def update(self, camera, *args, **kwargs):
         self.animate_new_frame()
@@ -149,7 +149,7 @@ class Character(pg.sprite.Sprite, Animated):
             self.change_images(self.idle_images[2 if i == 1 else 1 if i == 2 else i])
             self.mode = "idle"
 
-    def move_if_possible(self, dx, dy):
+    def move_if_possible(self, dx, dy, distance_to_target=None):
         self.movement_collider.update(self.rect)
 
         self.velocity_x += dx
@@ -163,6 +163,10 @@ class Character(pg.sprite.Sprite, Animated):
             self.velocity_y = 0
         if abs(self.velocity_x) < min_velocity:
             self.velocity_x = 0
+
+        if distance_to_target:
+            self.velocity_x = min(distance_to_target, self.velocity_x)
+            self.velocity_y = min(distance_to_target, self.velocity_y)
 
         if self.took_damage and abs(self.velocity_y) + abs(self.velocity_x) < 1:
             self.took_damage = False
@@ -248,7 +252,7 @@ class SlashAttacker(Character):
 
 class Player(SlashAttacker):
     def __init__(self, start_x, start_y):
-        Character.__init__(self, start_x, start_y, player_images[0:4], CHARACTER_SIZE * 1.6)
+        Character.__init__(self, start_x, start_y, player_images[0:4], CHARACTER_SIZE * 1.7)
         self.full_health = 12
         self.speed = 20
 
@@ -259,6 +263,12 @@ class Player(SlashAttacker):
         self.dash_animation_images = load_images_from_folder("assets/effects/dash")
         self.move_animation_images = load_images_from_folder("assets/effects/step")
         self.last_move_animation = pg.time.get_ticks()
+
+        self.idle_images = [[player_images[200]], [player_images[210]], [player_images[220]], [player_images[230]]]
+        self.walking_images = [player_images[10:18], player_images[20:28], player_images[30:38], player_images[40:48]]
+        self.dashing_images = [player_images[110:118], player_images[110]]
+        self.attack_images = [player_images[160:166], player_images[170:176], player_images[180:186], player_images[190:196]]
+        self.death_images = [player_images[150:158]]
 
         self.harm_animation_duration = 150
         self.harm_animation_start_time = pg.time.get_ticks()
@@ -407,8 +417,8 @@ class Player(SlashAttacker):
 
 
 class Enemy(Character):
-    def __init__(self, x, y):
-        Character.__init__(self, x, y, load_images_from_folder("assets/skeleton_enemy_1"), CHARACTER_SIZE * 0.92)
+    def __init__(self, x, y, size=CHARACTER_SIZE * 0.92):
+        Character.__init__(self, x, y, load_images_from_folder("assets/skeleton_scythe_enemy"), size)
         self.attack_dir = None
         self.health = 100
         self.full_health = 100
@@ -418,7 +428,7 @@ class Enemy(Character):
         self.roam_wait_time = random.randint(1500, 2500)
         self.last_turn_around_animation_time = pg.time.get_ticks()
         self.attack_cooldown = 1500
-        self.about_to_attack_time_cooldown = 180
+        self.about_to_attack_time_cooldown = 280
         self.about_to_attack_time = 0
         self.distance_prepare_attack = 12000
 
@@ -445,30 +455,42 @@ class Enemy(Character):
                 return True
         return False
 
+    def calculate_movement_direction(self, dx, dy):
+        direction = [1 if abs(dx) > abs(dy) else 0, 1 if abs(dy) > abs(dx) else 0]
+        direction[0] *= math.copysign(1, dx)
+        direction[1] *= math.copysign(1, dy)
+        return direction
+
     def move_enemy(self, goal_position, player_rect=pg.Rect(0,0,0,0)):
+        self.mode = "wakling"
         goal_x, goal_y = goal_position
         dx = goal_x - self.rect.centerx
         dy = goal_y - self.rect.centery
 
+        if dx == 0 and dy == 0:
+            self.change_images(self.idle_images[self.get_direction_index(self.move_direction)])
+            return
+
+        new_direction = self.calculate_movement_direction(dx, dy)
+        if self.move_direction != new_direction and self.walking_images:
+            self.change_images(self.walking_images[self.get_direction_index(new_direction)])
+        self.move_direction = new_direction
+
+
+
         dx, dy = self.update_move_values(dx, dy)
-        self.flip_model_on_move(dx)
+        #self.flip_model_on_move(dx)
 
         if self.took_damage:
             dx = 0
             dy = 0
 
-        moved = self.move_if_possible(dx, dy)
-
-        # if not moved:
-        #     goal_x +=
-
-
-
         distance = math.sqrt((self.rect.centerx - goal_x) ** 2 + (self.rect.centery - goal_y) ** 2)
+        moved = self.move_if_possible(dx, dy, distance)
 
-        print(moved, distance, goal_position, self.rect.center, dx, dy)
+        #print(moved, distance, goal_position, self.rect.center, dx, dy)
 
-        if distance < 15 or not moved:
+        if distance < CHARACTER_SIZE or not moved:
             if self.last_known_player_position is not None and not self.in_line_of_sight(player_rect, walls):
                 self.last_known_player_position = None
             self.roam_position = None
@@ -503,17 +525,20 @@ class Enemy(Character):
         random_point.width = 1
         random_point.height = 1
 
-        if self.in_line_of_sight(random_point, walls, True, camera):
+        if self.in_line_of_sight(random_point, walls, True, camera, inflate_value=5):
             self.roam_position = (random_point.x, random_point.y)
 
     def handle_spotting(self, player_rect):
         if self.last_known_player_position is None and self.spotted_time is None:
-            visuals.add(NotificationVisual(load_images_from_folder("assets/effects/spotted"), self.rect.move(0, -60)))
+            visuals.add(NotificationVisual(load_images_from_folder("assets/effects/spotted"), self.damage_collider.collision_rect.move(0, -65)))
             self.flip_model_on_move(player_rect.x - self.rect.x)
             self.spotted_time = pg.time.get_ticks()
 
         self.last_known_player_position = (player_rect.centerx, player_rect.centery)
         if self.spotted_time and pg.time.get_ticks() - self.spotted_time < self.spotted_wait_duration:
+            if self.idle_images:
+                self.change_images(self.idle_images[self.get_direction_index(self.move_direction)])
+                self.mode = "idle"
             return
 
         self.spotted_time = None
@@ -527,7 +552,8 @@ class Enemy(Character):
     def update(self, camera, player_rect, *args, **kwargs):
         super().update(camera)
         # handle knockback
-        if self.took_damage and (self.velocity_x > 0.05 or self.velocity_y > 0.05):
+        is_min_velocity_to_knockback = (abs(self.velocity_x) > 0.03 or abs(self.velocity_y) > 0.03)
+        if self.took_damage and is_min_velocity_to_knockback:
             self.move_enemy([0, 0], player_rect)
 
         if self.about_to_attack_time != 0:
@@ -544,14 +570,16 @@ class Enemy(Character):
             animation_dt = pg.time.get_ticks() - self.last_turn_around_animation_time
 
             if wait_dt < self.roam_wait_time - 50:
+                if self.idle_images and self.mode != "idle":
+                    self.change_images(self.idle_images[self.get_direction_index(self.move_direction)])
+                    self.mode = "idle"
+
                 if animation_dt < self.roam_wait_time/2:
                     self.flipped_x = not self.flipped_x
                     self.last_turn_around_animation_time = pg.time.get_ticks()
             else:
                 # chose random point, check if in line of sight
                 self.choose_where_to_roam(camera)
-
-        self.animate_new_frame()
 
     def is_colliding_with_walls(self, dx, dy, obstacles):
         self.movement_collider.update(self.rect)
@@ -561,7 +589,7 @@ class Enemy(Character):
                 return True
         return False
 
-    def in_line_of_sight(self, position_rect, obstacles, ignore_view_distance=False, camera=None):
+    def in_line_of_sight(self, position_rect, obstacles, ignore_view_distance=False, camera=None, inflate_value=-1):
         # draw the vision ray
         if camera:
             vision_start = self.rect.centerx - camera.rect.x, self.rect.centery - camera.rect.y
@@ -573,7 +601,7 @@ class Enemy(Character):
             return False
 
         for obstacle in obstacles:
-            if (obstacle.rect.move(-1 * math.copysign(15, position_rect.centerx), -1 * math.copysign(15, position_rect.centery))
+            if (obstacle.rect.inflate(inflate_value, inflate_value).move(-1 * math.copysign(15, position_rect.centerx), -1 * math.copysign(15, position_rect.centery))
                     .clipline(self.rect.center,position_rect.center)):
                 return False
 
@@ -596,11 +624,30 @@ class SkeletonScytheEnemy(Enemy, SlashAttacker):
 
 class SkeletonEnemy(Enemy, SlashAttacker):
     def __init__(self, x, y):
-        Enemy.__init__(self, x, y)
-        self.speed = 6
+        Enemy.__init__(self, x, y, CHARACTER_SIZE * 1.7)
+
+        self.speed = 10
         self.attack_cooldown = 10
         self.distance_prepare_attack = 2400
         self.about_to_attack_time_cooldown = 0
+
+        off_x = 55
+        off_y = 50
+        self.movement_collider = Collider((off_x//2, self.rect.height - off_y), (self.rect.width - off_x, 20))
+        self.damage_collider = Collider((self.rect.width//4, self.rect.height//4), (self.rect.width//2, self.rect.height//2), (255, 0, 0))
+
+
+        self.walking_images = [skeleton_enemy_images[16:20], skeleton_enemy_images[20:24], skeleton_enemy_images[16:20], skeleton_enemy_images[12:16]]
+        self.idle_images = [skeleton_enemy_images[0:4], skeleton_enemy_images[8:12], skeleton_enemy_images[4:8], skeleton_enemy_images[0:4]]
+        self.death_images = [skeleton_enemy_images[44:48], skeleton_enemy_images[48:52], skeleton_enemy_images[44:48], skeleton_enemy_images[40:44]]
+        self.frame_duration = 240
+        self.images = self.idle_images[0]
+
+
+
+    def move_enemy(self, goal_position, player_rect=pg.Rect(0,0,0,0)):
+        super().move_enemy(goal_position, player_rect)
+        self.flip_model_on_move(self.move_direction[0])
 
     def attack_function(self):
         size_x = self.damage_collider.collision_rect.size[0] * 1.3
