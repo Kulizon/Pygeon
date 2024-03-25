@@ -504,7 +504,6 @@ class Enemy(Character):
             #self.slash_attack(self.attack_dir, 0.8)
             self.attack_dir = None
             self.about_to_attack_time = 0
-            print(1)
 
     def prepare_attack(self, player_rect):
         if pg.time.get_ticks() - self.last_attack_time > self.attack_cooldown:
@@ -548,8 +547,6 @@ class Enemy(Character):
         self.spotted_time = None
         distance_to_player = (self.rect.x - player_rect.x) ** 2 + (self.rect.y - player_rect.y) ** 2
 
-        print(distance_to_player, self.distance_prepare_attack)
-
         if distance_to_player > self.distance_prepare_attack:
             self.move_enemy((player_rect.centerx, player_rect.centery), player_rect)
         else:
@@ -566,8 +563,7 @@ class Enemy(Character):
             self.damage_collider.update(self.rect, camera)
 
             if self.death_images and self.cur_frame == 0:
-                self.change_images(self.death_images[0])
-                print(self.images)
+                self.change_images(self.death_images[self.get_direction_index(self.move_direction)])
                 # self.frame_duration = 180
             elif self.death_images is None:
                 explosion_images = load_images_from_folder("assets/effects/explosion")
@@ -575,6 +571,7 @@ class Enemy(Character):
                 characters.remove(self)
 
             if self.cur_frame != self.last_frame:
+                self.flip_model_on_move(self.move_direction[0])
                 self.animate_new_frame()
             # else:
             #     characters.remove(self)
@@ -670,8 +667,8 @@ class SkeletonEnemy(Enemy, SlashAttacker):
         self.damage_collider = Collider((self.rect.width//4, self.rect.height//4), (self.rect.width//2, self.rect.height//2), (255, 0, 0))
 
         self.walking_images = [skeleton_enemy_images[16:20], skeleton_enemy_images[20:24], skeleton_enemy_images[16:20], skeleton_enemy_images[12:16]]
-        self.idle_images = [skeleton_enemy_images[0:4], skeleton_enemy_images[8:12], skeleton_enemy_images[4:8], skeleton_enemy_images[0:4]]
-        self.death_images = [skeleton_enemy_images[44:48], skeleton_enemy_images[48:52], skeleton_enemy_images[44:48], skeleton_enemy_images[40:44]]
+        self.idle_images = [skeleton_enemy_images[4:8], skeleton_enemy_images[8:12], skeleton_enemy_images[4:8], skeleton_enemy_images[0:4]]
+        self.death_images = [skeleton_enemy_images[40:44], skeleton_enemy_images[44:48], skeleton_enemy_images[40:44], skeleton_enemy_images[36:40]]
         self.frame_duration = 240
         self.images = self.idle_images[0]
 
