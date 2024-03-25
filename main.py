@@ -114,7 +114,7 @@ def underworld_scene(game):
 
     for char in characters:
         # display health bar
-        if not isinstance(char, (Player, Merchant)) and char.health < char.full_health:
+        if not isinstance(char, (Player, Merchant)) and 0 <= char.health < char.full_health:
             health_bar_length = 60
             health_bar_height = 10
             current_health_length = (char.health / char.full_health) * health_bar_length
@@ -148,9 +148,7 @@ def underworld_scene(game):
                         tested_char.take_damage(dmg, game.player)
 
                         if isinstance(tested_char, Enemy) and tested_char.health <= 0:
-                            characters.remove(tested_char)
-                            images = load_images_from_folder("assets/effects/explosion")
-                            visuals.add(Visual(images, tested_char.rect.inflate(20, 20), pg.time.get_ticks(), 400))
+                            tested_char.make_dead()
 
             char.attacks.remove(attack)
             images = load_images_from_folder("assets/effects/slash_attack")
