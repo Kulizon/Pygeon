@@ -402,9 +402,9 @@ def generate_map(room_map):
 
         # generate traps and items
         if room_id != 1:
-            for prob in [1, 0.5, 0.25]:
-                if random.random() < prob:
-                    generate_enemy(room_layout, decorations_layout, x_off, y_off, room_id)
+            # for prob in [1, 0.5, 0.25]:
+            #     if random.random() < prob:
+            #         generate_enemy(room_layout, decorations_layout, x_off, y_off, room_id)
 
             for prob in [1, 0.5, 0.25]:
                 if random.random() < prob:

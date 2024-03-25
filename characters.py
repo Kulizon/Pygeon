@@ -158,10 +158,6 @@ class Character(pg.sprite.Sprite, Animated):
         self.velocity_x *= (1 - self.friction)
         self.velocity_y *= (1 - self.friction)
 
-        # if isinstance(self, Player):
-        #     print("if possible move")
-        #     print(dx, dy, self.velocity_x, self.velocity_y, self.friction)
-
         min_velocity = 0.1
         if abs(self.velocity_y) < min_velocity:
             self.velocity_y = 0
@@ -207,9 +203,6 @@ class Character(pg.sprite.Sprite, Animated):
                 self.rect.x += dx
             elif not is_collision_along_y:
                 self.rect.y += dy
-
-        if not isinstance(self, Player) and self.health < self.full_health:
-            print(dx, dy, is_collision,  (is_collision_along_x or dx == 0), (is_collision_along_y or dy == 0))
 
         return not (is_collision and (is_collision_along_x or dx == 0) and (is_collision_along_y or dy == 0))
 
@@ -274,7 +267,7 @@ class Player(SlashAttacker):
 
         self.number_of_keys = 10
         self.coins = 1595
-        self.health = 4
+        self.health = 15
         self.is_next_level = False
         self.is_in_out_of_dungeon = False
 
@@ -415,7 +408,7 @@ class Player(SlashAttacker):
 
 class Enemy(Character):
     def __init__(self, x, y):
-        Character.__init__(self, x, y, load_images_from_folder("assets/skeleton_enemy_1"), CHARACTER_SIZE * 0.96)
+        Character.__init__(self, x, y, load_images_from_folder("assets/skeleton_enemy_1"), CHARACTER_SIZE * 0.92)
         self.attack_dir = None
         self.health = 100
         self.full_health = 100
@@ -453,9 +446,9 @@ class Enemy(Character):
         return False
 
     def move_enemy(self, goal_position, player_rect=pg.Rect(0,0,0,0)):
-        pos_x, pos_y = goal_position
-        dx = pos_x - self.rect.x
-        dy = pos_y - self.rect.y
+        goal_x, goal_y = goal_position
+        dx = goal_x - self.rect.centerx
+        dy = goal_y - self.rect.centery
 
         dx, dy = self.update_move_values(dx, dy)
         self.flip_model_on_move(dx)
@@ -466,10 +459,11 @@ class Enemy(Character):
 
         moved = self.move_if_possible(dx, dy)
 
-        distance = math.sqrt((self.damage_collider.collision_rect[0] - goal_position[0]) ** 2 + (
-                self.damage_collider.collision_rect[1] - goal_position[1]) ** 2)
+        distance = math.sqrt((self.rect.centerx - goal_x) ** 2 + (self.rect.centery - goal_y) ** 2)
 
-        if distance < 3 or not moved:
+        print(distance, goal_position, self.rect.center)
+
+        if distance < 10 or not moved:
             if self.last_known_player_position is not None and not self.in_line_of_sight(player_rect, walls):
                 self.last_known_player_position = None
             self.roam_position = None
@@ -513,7 +507,7 @@ class Enemy(Character):
             self.flip_model_on_move(player_rect.x - self.rect.x)
             self.spotted_time = pg.time.get_ticks()
 
-        self.last_known_player_position = (player_rect.x, player_rect.y)
+        self.last_known_player_position = (player_rect.centerx, player_rect.centery)
         if self.spotted_time and pg.time.get_ticks() - self.spotted_time < self.spotted_wait_duration:
             return
 
@@ -521,7 +515,7 @@ class Enemy(Character):
         distance_to_player = (self.rect.x - player_rect.x) ** 2 + (self.rect.y - player_rect.y) ** 2
 
         if distance_to_player > self.distance_prepare_attack:
-            self.move_enemy((player_rect.x, player_rect.y), player_rect)
+            self.move_enemy((player_rect.centerx, player_rect.centery), player_rect)
         else:
             self.prepare_attack(player_rect)
 

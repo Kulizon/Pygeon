@@ -76,12 +76,9 @@ class Game():
             self.camera = Camera(self.map.width_px, self.map.height_px, self.player)
 
             merchant = Merchant(self.map.width_px // 2 - CHARACTER_SIZE, self.map.height_px // 2 - 220 - CHARACTER_SIZE)
-            ch1 = SkeletonScytheEnemy(self.map.width_px // 2, self.map.height_px // 2 + 220)
-            ch2 = SkeletonEnemy(self.map.width_px // 2, self.map.height_px // 2 - 220)
-            # characters.add(self.player, ch2, merchant)
-            # objects_map[1]["characters"].append(ch2)
-            characters.add(self.player, merchant)
-            # characters.add(self.player, self.merchant)
+            ch2 = SkeletonEnemy(self.player.rect.x, self.player.rect.y + 310)
+            characters.add(self.player, merchant, ch2)
+            objects_map[1]["characters"].append(ch2)
         elif self.scene == "overworld":
             self.map = OverworldMap()
 
