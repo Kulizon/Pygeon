@@ -4,7 +4,7 @@ from copy import deepcopy
 import pygame as pg
 
 from tiles import MapTile
-from shared import WALL_SIZE, visuals
+from shared import WALL_SIZE, visuals, font, screen, SCREEN_WIDTH
 from utility import load_images_from_folder, NotificationVisual, Animated, ActionObject
 
 
@@ -67,25 +67,39 @@ class Chest(Item):
 
 
 class Trapdoor(MapTile, ActionObject):
-    def __init__(self, x, y):
+    def __init__(self, x, y, is_dungeon_exit=False):
         from map_generation import dungeon_tile_images
-        MapTile.__init__(self, dungeon_tile_images[38], x, y)
+        MapTile.__init__(self, dungeon_tile_images[39] if is_dungeon_exit else dungeon_tile_images[38], x, y)
         ActionObject.__init__(self, self.rect, self.trapdoor_action)
 
         self.open_trapdoor_image = dungeon_tile_images[39]
         self.opened = False
+        self.is_dungeon_exit = is_dungeon_exit
 
-    def trapdoor_action(self, player):
-        if self.opened:
-            player.is_next_level = True
-        elif player.number_of_keys > 0:
-            self.opened = True
-            player.number_of_keys -= 1
+    def trapdoor_action(self, player, action_objects):
+        if self.is_dungeon_exit:
+            player.is_in_out_of_dungeon = True
+            print(123)
+        else:
+            if self.opened:
+                player.is_next_level = True
+            elif player.number_of_keys > 0:
+                self.opened = True
+                player.number_of_keys -= 1
 
-    def update(self, *args, **kwargs):
+    def update(self, player):
+        word = None
         if self.opened:
             self.image = pg.transform.scale(self.open_trapdoor_image, (WALL_SIZE, WALL_SIZE))
 
+            if self.is_close(player):
+                word = "Go deeper!"
+        elif self.is_close(player):
+                word = "Open trapdoor!" if not self.is_dungeon_exit else "Exit dungeon!"
+
+        if word is not None:
+            text = font.render(word, True, (255, 255, 255))
+            screen.blit(text, (SCREEN_WIDTH - text.get_width() - 15, 170))
 
 class DungeonDoor(MapTile, ActionObject):
     def __init__(self, x, y, size):
@@ -94,10 +108,16 @@ class DungeonDoor(MapTile, ActionObject):
         ActionObject.__init__(self, self.rect, self.trapdoor_action)
         self.last_notification_added_time = -10000
 
-    def trapdoor_action(self, player):
+    def trapdoor_action(self, player, action_objects):
         player.is_in_out_of_dungeon = True
 
     def update(self, player, *args, **kwargs):
+        if self.is_close(player):
+            word = "Start dungeoning!1!"
+            text = font.render(word, True, (255, 255, 255))
+
+            screen.blit(text, (20, 10))
+
         if pg.time.get_ticks() - self.last_notification_added_time > 10000:
             visuals.add(NotificationVisual(load_images_from_folder("assets/effects/spotted"), self.rect.move(0, -80), duration=10000, iterations=20))
             self.last_notification_added_time = pg.time.get_ticks()

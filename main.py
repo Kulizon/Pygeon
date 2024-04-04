@@ -156,7 +156,7 @@ def underworld_scene(game):
     display_ui(game.player.coins, game.player.health, game.map.discovered_mini_map, game.map.current_map_cell, game.player.number_of_keys, defeat_timer_seconds, fps)
 
     visuals.update(game.camera)
-    decorations.update()
+    decorations.update(game.player)
     traps.update(game.player)
     items.update(game.player)
     characters.update(game.camera, game.player.damage_collider.collision_rect)
@@ -169,6 +169,10 @@ def underworld_scene(game):
         game.player.is_next_level = False
         generate_new_level(game.player, "underworld")
 
+    if game.player.is_in_out_of_dungeon:
+        game.player.is_in_out_of_dungeon = False
+        generate_new_level(game.player, "overworld")
+
 
 def overworld_scene(game):
     screen.fill((0, 0, 0))
@@ -176,8 +180,13 @@ def overworld_scene(game):
     action_objects = []
     for wall in walls:
         if isinstance(wall, DungeonDoor) or (isinstance(wall, FurnitureToBuyTile) and not wall.bought):
-            wall.update(game.player)
+            #wall.update(game.player, game.camera)
             action_objects.append(wall)
+
+    for decoration in decorations:
+        if (isinstance(decoration, FurnitureToBuyTile) and not decoration.bought):
+            #decoration.update(game.player, game.camera)
+            action_objects.append(decoration)
 
     for event in pg.event.get():
         keys = pg.key.get_pressed()
@@ -189,7 +198,6 @@ def overworld_scene(game):
                 for obj in action_objects:
                     performed = obj.perform_action(game.player, action_objects)
                     if performed:
-                        print(performed)
                         break
 
     game_objs_grps = [ground, walls, items, characters, decorations, visuals]
@@ -199,18 +207,19 @@ def overworld_scene(game):
 
     game.camera.update(game.player)
 
-    walls.update(game.player)
+    walls.update(game.player, game.camera)
     visuals.update(game.camera)
-    decorations.update()
+    decorations.update(game.player, game.camera)
     traps.update(game.player)
     items.update(game.player)
     characters.update(game.camera, game.player.damage_collider.collision_rect)
 
+    display_ui(game.player.coins, None, None, None, None, None, fps)
+
+
     if game.player.is_in_out_of_dungeon:
         game.player.is_in_out_of_dungeon = False
         generate_new_level(game.player, "underworld")
-
-
 
 pg.init()
 clock = pg.time.Clock()
@@ -226,6 +235,8 @@ def generate_new_level(current_player, scene):
         characters.empty()
     else:
         characters.remove([char for char in characters.sprites() if not isinstance(char, Player)])
+
+    print(current_player)
 
     game = Game(current_player, scene)
 

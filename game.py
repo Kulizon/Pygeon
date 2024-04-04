@@ -84,7 +84,12 @@ class Game():
             player_start_x = self.map.width_px // 2 - CHARACTER_SIZE - 180
             player_start_y = self.map.height_px // 2 - CHARACTER_SIZE
 
-            self.player = Player(player_start_x, player_start_y)
+            if not current_player:
+                self.player = Player(player_start_x, player_start_y)
+            else:
+                self.player = current_player
+                self.player.rect.x = player_start_x
+                self.player.rect.y = player_start_y
             self.camera = Camera(self.map.width_px, self.map.height_px, self.player)
 
             characters.add(self.player)
@@ -137,12 +142,8 @@ class Game():
                     traps.add(objects[label])
                 elif label == "characters":
                     for obj in objects[label]:
-                        if obj.health > 0:
+                        if obj.health > 0 and cell == current_map_cell: # add enemies only in the current cell
                             characters.add(obj)
-
-        # changed the place where objects end up in in map_generation.py
-        # from this map i think select the appropriate room with self.current_map_cell
-        # add to decorations, walls, traps etc.
 
 
 

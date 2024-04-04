@@ -671,6 +671,7 @@ class SkeletonEnemy(Enemy, SlashAttacker):
         self.idle_images = [skeleton_enemy_images[4:8], skeleton_enemy_images[8:12], skeleton_enemy_images[4:8], skeleton_enemy_images[0:4]]
         self.death_images = [skeleton_enemy_images[40:44], skeleton_enemy_images[44:48], skeleton_enemy_images[40:44], skeleton_enemy_images[36:40]]
         self.frame_duration = 240
+        self.death_frame_duration = 100
         self.images = self.idle_images[0]
 
     def knockback(self, enemy):
@@ -725,7 +726,7 @@ class MerchantItem(Item, ActionObject):
         self.bought = False
         self.description = description
 
-    def sell(self, player):
+    def sell(self, player, action_objects):
         if player.coins >= self.price >= 0:
             player.coins -= self.price
 
@@ -739,7 +740,6 @@ class MerchantItem(Item, ActionObject):
 
         text = font.render(str(self.price) + "$", True, color)
         screen.blit(text, (self.rect.x - camera.rect.x, self.rect.y - camera.rect.y + self.image.get_height() + 10))
-
 
         if self.description and self.is_close(player):
             words = self.description.split(" ")
